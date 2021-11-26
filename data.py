@@ -1,9 +1,13 @@
 import pandas as pd
-
+from torch.utils.data import dataloader
+import matplotlib.pyplot as plt
 def getdata():
-    TOPIX = pd.read_csv("data.csv")
-    #print(TOPIX)
-    return TOPIX
+    data = pd.read_csv("data.csv")
+    return data
 
-T = getdata()
-print(T)
+TOPIX = getdata()["TPX"] #.values
+TOPIX.plot()
+print(TOPIX)
+
+#plt.plot(TOPIX, label = 'Airline Passangers Data')
+plt.show()
