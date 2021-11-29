@@ -139,7 +139,6 @@ if __name__ == '__main__':
         stop=stop,
         noise_std=noise_std
     )
-    #orig_trajs = torch.from_numpy(orig_trajs).float().to(device)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
     test_ts = torch.from_numpy(test_ts).float().to(device)
@@ -163,9 +162,7 @@ if __name__ == '__main__':
             rec.load_state_dict(checkpoint['rec_state_dict'])
             dec.load_state_dict(checkpoint['dec_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            #orig_trajs = checkpoint['orig_trajs']
             sample_trajs = checkpoint['sample_trajs']
-            #orig_ts = checkpoint['orig_ts']
             train_ts = checkpoint['train_ts']
             test_ts = checkpoint['test_ts']
             print('Loaded ckpt from {}'.format(ckpt_path))
@@ -209,9 +206,7 @@ if __name__ == '__main__':
                 'rec_state_dict': rec.state_dict(),
                 'dec_state_dict': dec.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                #'orig_trajs': orig_trajs,
                 'sample_trajs': sample_trajs,
-                #'orig_ts': orig_ts,
                 'train_ts': train_ts,
                 'test_ts':test_ts,
             }, ckpt_path)
@@ -228,39 +223,23 @@ if __name__ == '__main__':
             qz0_mean, qz0_logvar = out[:, :latent_dim], out[:, latent_dim:]
             epsilon = torch.randn(qz0_mean.size()).to(device)
             z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
-            #orig_ts = torch.from_numpy(orig_ts).float().to(device)
 
             # take first trajectory for visualization
             z0 = z0[0]
-
-            #ts_pos = np.linspace(0., 2. * np.pi, num=2000)
-            #ts_neg = np.linspace(-np.pi, 0., num=2000)[::-1].copy()
-            #ts_pos = torch.from_numpy(ts_pos).float().to(device)
-            #ts_neg = torch.from_numpy(ts_neg).float().to(device)
 
             zs_learn = odeint(func, z0, train_ts)
             zs_pred = odeint(func, zs_learn[-1], test_ts)
             xs_learn = dec(zs_learn)
             xs_pred = dec(zs_pred)
             
-
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
-        #xs_neg = xs_neg.cpu().numpy()
-        #orig_traj = orig_trajs[0].cpu().numpy()
-        #samp_traj = samp_trajs[0].cpu().numpy()
-        #samp_traj = sample_trajs[0].cpu().numpy()
-
 
         plt.figure()
-        #plt.plot(orig_traj[:, 0], orig_traj[:, 1],
-        #         'g', label='true trajectory')
         plt.plot(train_ts, xs_learn, #'r',
                  label='learned trajectory')
         plt.plot(test_ts, xs_pred, #'r',
                  label='predicted trajectory', ls="--")
-        #plt.plot(xs_neg[:, 0], xs_neg[:, 1], 'c',
-        #         label='learned trajectory (t<0)')
         
         plt.scatter(train_ts, train_data, label='train data', s=3)
         plt.scatter(test_ts, test_data, label='test data', s=3)

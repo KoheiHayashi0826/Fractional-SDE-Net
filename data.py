@@ -94,13 +94,10 @@ def generate_spiral2d(nspiral=2,
     plt.scatter(samp_trajs[0], samp_trajs[1])
     plt.show()
 
-
-    #return orig_trajs, samp_trajs, orig_ts, samp_ts
     return samp_trajs, orig_ts, samp_ts
 
 #generate_spiral2d()
 
-#orig_trajs, samp_trajs, orig_ts, samp_ts = generate_spiral2d()
 
 
 
@@ -138,7 +135,7 @@ def get_TOPIX_data(batch_dim=10,
     orig_data = data.loc[train_start:test_end]
     train_data = data.loc[train_start:train_end].values 
     test_data = data.loc[test_start:test_end].values
-    ntotal = orig_data.size+1
+    ntotal = orig_data.size + 1
     ntrain = train_data.size
     ntest = test_data.size
 
@@ -146,7 +143,6 @@ def get_TOPIX_data(batch_dim=10,
     train_ts = orig_ts[:ntrain]
     test_ts = orig_ts[ntrain:ntrain+ntest]
 
-    #orig_traj = orig_data.values
     sample_traj = train_data
 
     #if []:
@@ -157,7 +153,6 @@ def get_TOPIX_data(batch_dim=10,
     #    print('Saved ground truth spiral at {}'.format('./ground_truth.png'))
 
     # sample starting timestamps
-    #orig_trajs = []
     sample_trajs = []
     for _ in range(batch_dim):
         # don't sample t0 very near the start or the end
@@ -184,17 +179,15 @@ def get_TOPIX_data(batch_dim=10,
     """
     return sample_trajs, train_data, test_data, train_ts, test_ts
 
-#get_TOPIX_data()
 
 def data_plot():
     data = data = pd.read_csv("data.csv", index_col="Date")
-    data = data[["TPX", "SPX"]]
-    data = data.sort_values("Date").loc["2001/1/3":"2021/11/11"]
-    data = data.values
-    print(type(data))
-    print(data)
-    #data.plot()
-    #plt.show()
+    data = data[["TPX", "SPX", "SX5E"]]
+    data = data.sort_values("Date").loc["1987/1/3":"2021/11/11"]
+    #data = data.values
+    #print(type(data))
+    #print(data)
+    data.plot()
+    plt.show()
     
 #data_plot()
-
