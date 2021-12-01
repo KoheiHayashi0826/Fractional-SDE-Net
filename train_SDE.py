@@ -57,12 +57,12 @@ class RunningAverageMeter(object):
 
 
 if __name__ == '__main__':
-    latent_dim = 4
+    latent_dim = state_size
     nhidden = 20
     rnn_nhidden = 25
     obs_dim = 1
 
-    batch_dim = 50
+    batch_dim = batch_size
     start = 0.
     stop = 1.
     noise_std = 0.1
