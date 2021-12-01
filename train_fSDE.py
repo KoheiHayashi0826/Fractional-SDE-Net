@@ -175,7 +175,7 @@ if __name__ == '__main__':
             #z0 = torch.full((batch_size, state_size), z0[0])
 
             zs_learn = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts)
-            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts)
+            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts-train_ts[-1])
             xs_learn = dec(zs_learn[0,:,:])
             xs_pred = dec(zs_pred[0,:,:])
             

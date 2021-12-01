@@ -29,12 +29,12 @@ def fsdeint(hurst, y0, ts):
         ts = ts.to(device).detach().numpy().copy()
         y0 = y0.to(device).detach().numpy().copy()
     
-    t0 = 0
+    t0 = float(ts[0])
     t_end = float(ts[-1])
-    nsteps = 1000
+    nsteps = 500
     y_samples = []
     
-    B = FBM(n=nsteps, hurst=hurst, length=t_end).fbm()
+    B = FBM(n=nsteps, hurst=hurst, length=t_end-t0).fbm()
     dB = np.diff(B)
     dt = (t_end - t0)/nsteps
     ts = ts * nsteps / t_end
@@ -48,25 +48,25 @@ def fsdeint(hurst, y0, ts):
         y_sample = y[ts]
         y_samples.append(y_sample)
     y_samples = np.stack(y_samples, axis=0)
-    y_samples = torch.from_numpy(y_samples).float().to(device)
+    y_samples.tolist()
+    y_samples = torch.tensor(y_samples, requires_grad=True)
+    #y_samples = torch.from_numpy(y_samples).float().to(device)
     
     return y_samples
 
 def experiment():
-    list = [1, 2, 3, 5, 6, 10]
-    ts = torch.tensor(list)
-    y0 = torch.ones(3, 4)
-    #test = y0
-    #print(test.size(0))
-    #y0 = torch.ones(4)
-    y = fsdeint(hurst=0.6, y0=y0, ts=ts)
-    print(y)
-    #y= y[1].detach().numpy().copy()
-    #print(type(y))
-
-    #plt.plot(ts, y, label="solution")
-    #plt.legend()
-    #plt.show()
+    list = [0, 1, 2, 3, 5, 6, 10]
+    list = range(100)
+    with torch.no_grad():
+        ts = torch.tensor(list)
+        y0 = torch.ones(3, 4)
+    y = fsdeint(hurst=0.5, y0=y0, ts=ts)
+    print(y, y.size())
+    y= y.detach().numpy().copy()
+    
+    plt.plot(ts, y[0,:,1], label="solution")
+    plt.legend()
+    plt.show()
 
 #experiment()
 

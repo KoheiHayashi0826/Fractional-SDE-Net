@@ -107,7 +107,7 @@ def generate_spiral2d(nspiral=2,
 
 def get_TOPIX_data(batch_dim=10,
                       start=0.,
-                      stop=1,  # approximately equal to 6pi
+                      stop=10, 
                       noise_std=10):
     """Parametric formula for 2d spiral is `r = a + b * theta`.
     Args:

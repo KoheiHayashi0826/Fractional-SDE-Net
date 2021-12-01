@@ -73,11 +73,11 @@ if __name__ == '__main__':
     # generate TOPIX data
     from data import get_TOPIX_data
     sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data(
-        batch_dim=batch_dim,
-        start=start,
-        stop=stop,
-        noise_std=noise_std
-    )
+        batch_dim=batch_dim)
+#        start=start,
+#        stop=stop,
+#        noise_std=noise_std
+#    )
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
     test_ts = torch.from_numpy(test_ts).float().to(device)
