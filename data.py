@@ -88,15 +88,15 @@ def generate_spiral2d(nspiral=2,
     #samp_trajs = data1.values
     #print(orig_trajs.shape)
     print(samp_trajs.shape)
-    #print(orig_trajs)
     print(samp_trajs)
-    #plt.plot(samp_ts, samp_trajs[1])
     plt.scatter(samp_trajs[0], samp_trajs[1])
     plt.show()
 
     return samp_trajs, orig_ts, samp_ts
 
 #generate_spiral2d()
+
+
 
 
 
@@ -125,16 +125,22 @@ def get_TOPIX_data(batch_dim=10,
       third element is timestamps of size (ntotal,),
       and fourth element is timestamps of size (nsample,)
     """
-    train_start = "2019/1/3"
+    train_start = "2018/1/2"
     train_end = "2020/12/31"
-    test_start = train_end #"2021/1/3"
+    test_start = "2020/12/31" #"2021/1/3"
     test_end = "2021/11/11"
     data = pd.read_csv("data.csv", index_col="Date")
-    data = data.sort_values("Date")
-    data = data["TPX"]
-    orig_data = data.loc[train_start:test_end]
+    data = data[["TPX"]]
+    orig_data = data.loc[test_end:train_start]
+    data = data.iloc[::-1]
+    #print(data)
+    #data = data.sort_values("Date")
     train_data = data.loc[train_start:train_end].values 
     test_data = data.loc[test_start:test_end].values
+    #train_data = data.loc[train_end:train_start]
+    #print(train_data)
+    #test_data = data.loc[test_end:test_start].values
+    
     ntotal = orig_data.size + 1
     ntrain = train_data.size
     ntest = test_data.size
@@ -170,7 +176,7 @@ def get_TOPIX_data(batch_dim=10,
     # batching for sample trajectories is good for RNN; batching for original
     # trajectories only for ease of indexing
     #orig_trajs = np.stack(orig_trajs, axis=0)
-    sample_trajs = np.stack(sample_trajs, axis=0)
+    sample_trajs = np.stack(sample_trajs, axis=0).reshape(batch_dim, -1)
     """
     plt.scatter(train_ts, train_data, label="train", s=3)
     plt.scatter(test_ts, test_data, label="test", s=3)
@@ -179,11 +185,22 @@ def get_TOPIX_data(batch_dim=10,
     """
     return sample_trajs, train_data, test_data, train_ts, test_ts
 
+#sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data()
+#print(sample_trajs.shape)
+
+
 
 def data_plot():
     data = data = pd.read_csv("data.csv", index_col="Date")
-    data = data[["TPX", "SPX", "SX5E"]]
-    data = data.sort_values("Date").loc["1987/1/3":"2021/11/11"]
+    #data = data[["TPX", "SPX", "SX5E"]]
+    data = data[["TPX"]]
+    #data = data.sort_values("Date").loc["1987/1/2":"2021/11/11"]
+    #data = data.sort_values("Date").loc["2021/1/3":"2021/11/11"]
+    #data = data.loc["2020/1/3":"1987/1/2"]
+    data = data.loc["2021/11/11":"2018/1/2"]
+    data = data.iloc[::-1]
+    #data.sort_values("Date")
+    
     #data = data.values
     #print(type(data))
     #print(data)

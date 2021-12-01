@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 class LatentODEfunc(nn.Module):
+
     def __init__(self, latent_dim=4, nhidden=20):
         super(LatentODEfunc, self).__init__()
         self.elu = nn.ELU(inplace=True)
@@ -11,6 +12,7 @@ class LatentODEfunc(nn.Module):
         self.fc2 = nn.Linear(nhidden, nhidden)
         self.fc3 = nn.Linear(nhidden, latent_dim)
         self.nfe = 0
+
     def forward(self, t, x):
         self.nfe += 1
         out = self.fc1(x)
@@ -32,13 +34,16 @@ class RecognitionRNN(nn.Module):
         self.nbatch = nbatch
         self.i2h = nn.Linear(obs_dim + nhidden, nhidden)
         self.h2o = nn.Linear(nhidden, latent_dim * 2)
+
     def forward(self, x, h):
         combined = torch.cat((x, h), dim=1)
         h = torch.tanh(self.i2h(combined))
         out = self.h2o(h)
         return out, h
+
     def initHidden(self):
         return torch.zeros(self.nbatch, self.nhidden)
+
 
 
 class Decoder(nn.Module):
@@ -81,8 +86,11 @@ class LatentFSDEfunc(nn.Module):
 
     def drift(t, y):
         y = torch.from_numpy(y).float()
-        func = nn.Linear(state_size, state_size)
-        out = func(y)
+        func_1 = nn.Linear(state_size, state_size)
+        func_2 = nn.Tanh()
+        out = func_1(y)
+        out = func_2(out)
+        out = func_1(out)
         out = out.detach().numpy()
         return out  
 

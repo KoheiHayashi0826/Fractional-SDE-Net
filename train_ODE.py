@@ -15,6 +15,7 @@ import torch.nn.functional as F
 
 from neural_net import LatentODEfunc, RecognitionRNN, Decoder, state_size, batch_size
 from utils import log_normal_pdf, normal_kl
+from plots import plot_path, plot_hist
 
 
 parser = argparse.ArgumentParser()
@@ -62,7 +63,7 @@ if __name__ == '__main__':
 
     batch_dim = batch_size
     start = 0.
-    stop = 1.
+    stop = 10
     noise_std = 0.1
     
     device = torch.device('cuda:' + str(args.gpu)
@@ -71,11 +72,7 @@ if __name__ == '__main__':
     # generate TOPIX data
     from data import get_TOPIX_data
     sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data(
-        batch_dim=batch_dim,
-        start=start,
-        stop=stop,
-        noise_std=noise_std
-    )
+        batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
     test_ts = torch.from_numpy(test_ts).float().to(device)
@@ -173,6 +170,11 @@ if __name__ == '__main__':
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
 
+        plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, './vis_ODE.png')
+        plot_hist(xs_learn, train_data, "./hist_ODE.png")
+
+
+"""
         plt.figure()
         plt.plot(train_ts, xs_learn, #'r',
                  label='learned trajectory')
@@ -184,5 +186,5 @@ if __name__ == '__main__':
         plt.legend()
         plt.savefig('./vis_ODE.png', dpi=500)
         print('Saved visualization figure at {}'.format('./vis_ODE.png'))
-    
+"""    
 

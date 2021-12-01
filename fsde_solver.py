@@ -64,9 +64,25 @@ def experiment():
     print(y, y.size())
     y= y.detach().numpy().copy()
     
-    plt.plot(ts, y[0,:,1], label="solution")
-    plt.legend()
+    #plt.plot(ts, y[0,:,1], label="solution")
+    #plt.legend()
+    #plt.show()
+    plt.hist(y[0,:,0], bins=50, color='red')
+    plt.hist(y[0,:,1], bins=50, color='blue')
     plt.show()
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+
+    ax.hist(y[0,:,1], color='red')
+    ax.hist(y[0,:,1], color='blue')
+    ax.set_title('fifth histogram')
+    ax.set_xlabel('x')
+    ax.set_ylabel('freq')
+    ax.set_ylim(0, 0.1)
+    fig.show()
+    """
+
 
 #experiment()
 
