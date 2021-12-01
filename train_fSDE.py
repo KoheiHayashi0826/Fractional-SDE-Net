@@ -21,19 +21,21 @@ from utils import log_normal_pdf, normal_kl
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
 parser.add_argument('--visualize', type=eval, default=True)
-parser.add_argument('--niters', type=int, default=100) # originally 5000
+parser.add_argument('--niters', type=int, default=6) # originally 5000
 parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--train_dir', type=str, default=None)
 args = parser.parse_args()
 
-if args.adjoint:
-    from torchdiffeq import odeint_adjoint as odeint
-    from torchsde import sdeint_adjoint as sdeint
-else:
-    from torchdiffeq import odeint
-    from torchsde import sdeint
 
+#if args.adjoint:
+#    from torchdiffeq import odeint_adjoint as odeint
+#    from torchsde import sdeint_adjoint as sdeint
+#else:
+#    from torchdiffeq import odeint
+#    from torchsde import sdeint
+from fsde_solver import fsdeint
 
 
 class RunningAverageMeter(object):
@@ -57,12 +59,12 @@ class RunningAverageMeter(object):
 
 
 if __name__ == '__main__':
-    latent_dim = 4
+    latent_dim = state_size
+    batch_dim = batch_size
     nhidden = 20
     rnn_nhidden = 25
     obs_dim = 1
 
-    batch_dim = 50
     start = 0.
     stop = 1.
     noise_std = 0.1
@@ -99,7 +101,6 @@ if __name__ == '__main__':
         ckpt_path = os.path.join(args.train_dir, 'ckpt.pth')
         if os.path.exists(ckpt_path):
             checkpoint = torch.load(ckpt_path)
-            #func_SDE.load_state_dict(checkpoint['func_state_dict'])
             rec.load_state_dict(checkpoint['rec_state_dict'])
             dec.load_state_dict(checkpoint['dec_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -118,11 +119,13 @@ if __name__ == '__main__':
                 out, h = rec.forward(obs, h)
             qz0_mean, qz0_logvar = out[:, :latent_dim], out[:, latent_dim:]
             epsilon = torch.randn(qz0_mean.size()).to(device)
-            z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
+            z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension is (batch_size, latent_size)
+            #print(z0)
 
-            # forward in time and solve sde for reconstructions
-            # sdeint_out has shepe (t_size, batch_size, state_size)
-            pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
+            # forward in time and solve ode for reconstructions
+            # dimension of pred_z is (batch_size, t_size, latent_size)
+            pred_z = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts) #.permute(0, 2, 1)
+            #print(pred_z.size())
             pred_x = dec(pred_z).reshape(batch_dim, -1)
 
             # compute loss
@@ -171,11 +174,10 @@ if __name__ == '__main__':
             #print(z0.size())
             #z0 = torch.full((batch_size, state_size), z0[0])
 
-            zs_learn = sdeint(func_SDE, z0, train_ts)
-            #print(zs_learn.size())
-            zs_pred = sdeint(func_SDE, zs_learn[-1,:,:], test_ts)
-            xs_learn = dec(zs_learn[:,0,:])
-            xs_pred = dec(zs_pred[:,0,:])
+            zs_learn = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts)
+            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts)
+            xs_learn = dec(zs_learn[0,:,:])
+            xs_pred = dec(zs_pred[0,:,:])
             
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
@@ -189,8 +191,8 @@ if __name__ == '__main__':
         plt.scatter(train_ts, train_data, label='train data', s=3)
         plt.scatter(test_ts, test_data, label='test data', s=3)
         plt.legend()
-        plt.savefig('./vis_SDE.png', dpi=500)
-        print('Saved visualization figure at {}'.format('./vis_SDE.png'))
+        plt.savefig('./vis_fSDE.png', dpi=500)
+        print('Saved visualization figure at {}'.format('./vis_fSDE.png'))
     
 
 

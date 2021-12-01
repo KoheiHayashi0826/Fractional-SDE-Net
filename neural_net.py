@@ -1,3 +1,5 @@
+import numpy as np
+from numpy.core.fromnumeric import put
 import torch
 import torch.nn as nn
 
@@ -52,7 +54,7 @@ class Decoder(nn.Module):
         return out
 
 
-batch_size, state_size, brownian_size = 50, 4, 2
+batch_size, state_size, brownian_size = 51, 4, 2
 
 class LatentSDEfunc(nn.Module):
     noise_type = 'general'
@@ -60,8 +62,8 @@ class LatentSDEfunc(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.mu = torch.nn.Linear(state_size, state_size)
-        self.sigma = torch.nn.Linear(state_size, state_size * brownian_size)
+        self.mu = nn.Linear(state_size, state_size)
+        self.sigma = nn.Linear(state_size, state_size * brownian_size)
 
     # Drift
     def f(self, t, y):
@@ -70,4 +72,33 @@ class LatentSDEfunc(nn.Module):
     # Diffusion
     def g(self, t, y):
         return self.sigma(y).view(batch_size, state_size, brownian_size)
+
+
+
+class LatentFSDEfunc(nn.Module):
+    #def __init__(self):
+    #    pass
+
+    def drift(t, y):
+        y = torch.from_numpy(y).float()
+        func = nn.Linear(state_size, state_size)
+        out = func(y)
+        out = out.detach().numpy()
+        return out  
+
+    def diffusion(t, y):
+        y = torch.from_numpy(y).float()
+        func = nn.Linear(state_size, state_size)
+        out = func(y)
+        out = out.detach().numpy()
+        return out
+
+#print(type(LatentFSDEfunc.drift))
+
+#input = torch.ones(state_size)
+list = range(4)
+input = np.array(list)
+#print(type(input))
+output = LatentFSDEfunc.diffusion(t=0, y=input)
+#print(output)
 
