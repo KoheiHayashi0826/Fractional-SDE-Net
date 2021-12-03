@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 from fbm import FBM
 from neural_net import LatentFSDEfunc
 
-device = "cpu" #torch.device('cuda:' if torch.cuda.is_available() else 'cpu')
-
+#device = "cpu" 
+#torch.device('cuda:' if torch.cuda.is_available() else 'cpu')
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def fsdeint(hurst, y0, ts):
@@ -50,7 +51,6 @@ def fsdeint(hurst, y0, ts):
     y_samples = np.stack(y_samples, axis=0)
     y_samples.tolist()
     y_samples = torch.tensor(y_samples, requires_grad=True)
-    #y_samples = torch.from_numpy(y_samples).float().to(device)
     
     return y_samples
 
@@ -64,25 +64,22 @@ def experiment():
     print(y, y.size())
     y= y.detach().numpy().copy()
     
-    #plt.plot(ts, y[0,:,1], label="solution")
-    #plt.legend()
-    #plt.show()
     plt.hist(y[0,:,0], bins=50, color='red')
     plt.hist(y[0,:,1], bins=50, color='blue')
     plt.show()
-    """
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
 
-    ax.hist(y[0,:,1], color='red')
-    ax.hist(y[0,:,1], color='blue')
-    ax.set_title('fifth histogram')
-    ax.set_xlabel('x')
-    ax.set_ylabel('freq')
-    ax.set_ylim(0, 0.1)
-    fig.show()
-    """
+   
+def fbm_path(hurst):
+    f = FBM(n=1024, hurst=hurst, length=1).fbm()
+    ts = np.linspace(0, 1, 1025)
+    plt.plot(ts, f, linewidth=3, label="H={}".format(hurst))
+    #plt.xlabel("Time", fontsize=14)
+    #plt.ylabel("Value", fontsize=14) 
+    plt.legend(fontsize=18)
+    plt.tight_layout()
+    plt.show()
 
+#fbm_path(0.5)
 
 #experiment()
 
