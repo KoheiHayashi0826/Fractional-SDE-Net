@@ -3,6 +3,7 @@ import argparse
 import logging
 import time
 import numpy as np
+from numpy.core.fromnumeric import ndim
 import numpy.random as npr
 import matplotlib
 
@@ -16,7 +17,7 @@ import torch.nn.functional as F
 from neural_net import LatentODEfunc, RecognitionRNN, Decoder, state_size, batch_size
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
-
+from utils import save_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
@@ -37,14 +38,13 @@ else:
 
 
 if __name__ == '__main__':
+    data_name = "TOPIX"
     latent_dim = state_size
+    batch_dim = batch_size
     nhidden = 20
     rnn_nhidden = 25
     obs_dim = 1
 
-    batch_dim = batch_size
-    start = 0.
-    stop = 10
     noise_std = 0.1
     
     device = torch.device('cuda:' + str(args.gpu)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # generate TOPIX data
     from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -96,6 +96,7 @@ if __name__ == '__main__':
 
             # forward in time and solve ode for reconstructions
             pred_z = odeint(func, z0, train_ts).permute(1, 0, 2)
+            #print(pred_z.size())
             pred_x = dec(pred_z).reshape(batch_dim, -1)
 
             # compute loss
@@ -150,22 +151,9 @@ if __name__ == '__main__':
             
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
+        save_csv(data_name, "ODE", train_ts_pd, xs_learn.reshape(-1))
+        plot_path(data_name, "ODE", train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
+        plot_hist(data_name, "ODE", xs_learn, train_data)
 
-        plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, './vis_ODE.png')
-        plot_hist(xs_learn, train_data, "./hist_ODE.png")
-
-
-"""
-        plt.figure()
-        plt.plot(train_ts, xs_learn, #'r',
-                 label='learned trajectory')
-        plt.plot(test_ts, xs_pred, #'r',
-                 label='predicted trajectory', ls="--")
         
-        plt.scatter(train_ts, train_data, label='train data', s=3)
-        plt.scatter(test_ts, test_data, label='test data', s=3)
-        plt.legend()
-        plt.savefig('./vis_ODE.png', dpi=500)
-        print('Saved visualization figure at {}'.format('./vis_ODE.png'))
-"""    
 

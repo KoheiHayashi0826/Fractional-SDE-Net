@@ -11,65 +11,59 @@ import matplotlib.pyplot as plt
 
 
 
-def get_TOPIX_data(batch_dim=10,
+def get_TOPIX_data(batch_dim=5,
                       start=0.,
                       stop=100, 
                       noise_std=10):
 
-    train_start = "2018/1/2"
+    train_start = "2000/1/3"
     train_end = "2020/12/31"
     test_start = train_end
     test_end = "2021/11/11"
+
     data = pd.read_csv("data.csv", index_col="Date").iloc[::-1]
+    data = data[["TPX"]]
+    
+    #data = data.diff()
     data = data.loc[train_start:test_end]
-    ts = list(data.index)
-    ts = pd.to_datetime(ts)
-    ts = ts.map(pd.Timestamp.timestamp).values
-    ts_normal = start + (ts - ts[0]) / (ts[-1] - ts[0]) * (stop - start)
+    data = (data - data.values.mean()) / data.values.std()  
+
+    train_data = data.loc[train_start:train_end]
+    test_data = data.loc[test_start:test_end]
+
+    train_ts_pd = list(train_data.index)
+    test_ts_pd = list(test_data.index)
+    train_ts = pd.to_datetime(train_ts_pd)
+    test_ts = pd.to_datetime(test_ts_pd)
+    train_ts = train_ts.map(pd.Timestamp.timestamp).values
+    test_ts = test_ts.map(pd.Timestamp.timestamp).values
+    
+    train_ratio = train_ts.size / (train_ts.size + test_ts.size)
+    test_ratio = test_ts.size / (train_ts.size + test_ts.size)
+    train_ts = start + (train_ts - train_ts[0]) / (train_ts[-1] - train_ts[0]) * train_ratio * (stop - start)
+    test_ts = train_ts[-1] + (test_ts - test_ts[0]) / (test_ts[-1] - test_ts[0]) * test_ratio * (stop - start) 
  
 
-    data_key = data[["TPX"]]
-    orig_data = data_key.loc[train_start:test_end].values
-    train_data = data_key.loc[train_start:train_end].values 
-    test_data = data_key.loc[test_start:test_end].values
-    
-    ntrain = train_data.size
-    ntest = test_data.size
-
-    train_ts = ts_normal[:ntrain]
-    test_ts = ts_normal[ntrain-1:ntrain+ntest]
-
-    sample_traj = train_data
+    sample_traj = train_data.values
 
     # sample starting timestamps
     sample_trajs = []
     for _ in range(batch_dim):
-        # don't sample t0 very near the start or the end
-        #t0_idx = npr.multinomial(
-        #    1, [1. / (ntotal - 2. * nsample)] * (ntotal - int(2 * nsample)))
-        #t0_idx = np.argmax(t0_idx) + nsample
-        #orig_trajs.append(orig_traj)
-
         #samp_traj = orig_traj[t0_idx:t0_idx + nsample, :].copy()
         sample_traj = train_data.copy()
         sample_traj += npr.randn(*sample_traj.shape) * noise_std
         sample_trajs.append(sample_traj)
-    #print(samp_trajs)
-    #print(samp_traj)
+
     # batching for sample trajectories is good for RNN; batching for original
     # trajectories only for ease of indexing
-    #orig_trajs = np.stack(orig_trajs, axis=0)
     sample_trajs = np.stack(sample_trajs, axis=0).reshape(batch_dim, -1)
-    """
-    plt.scatter(train_ts, train_data, label="train", s=3)
-    plt.scatter(test_ts, test_data, label="test", s=3)
-    plt.legend()
-    plt.show()
-    """
-    return sample_trajs, train_data, test_data, train_ts, test_ts
 
-#sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data()
-#print(sample_trajs.shape, train_ts, test_ts)
+    return sample_trajs, train_data.values, test_data.values, train_ts_pd, test_ts_pd, train_ts, test_ts
+
+sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data()
+#print(train_ts.size, test_ts.size)
+#print(len(train_ts_pd), len(test_ts_pd))
+
 
 
 

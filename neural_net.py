@@ -47,11 +47,13 @@ class RecognitionRNN(nn.Module):
 
 
 class Decoder(nn.Module):
+
     def __init__(self, latent_dim=4, obs_dim=1, nhidden=20):
         super(Decoder, self).__init__()
         self.relu = nn.ReLU(inplace=True)
         self.fc1 = nn.Linear(latent_dim, nhidden)
         self.fc2 = nn.Linear(nhidden, obs_dim)
+
     def forward(self, z):
         out = self.fc1(z)
         out = self.relu(out)
@@ -59,7 +61,7 @@ class Decoder(nn.Module):
         return out
 
 
-batch_size, state_size, brownian_size = 51, 4, 2
+batch_size, state_size, brownian_size = 10, 4, 1
 
 class LatentSDEfunc(nn.Module):
     noise_type = 'general'
@@ -67,17 +69,22 @@ class LatentSDEfunc(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.mu = nn.Linear(state_size, state_size)
-        self.sigma = nn.Linear(state_size, state_size * brownian_size)
+        self.mu_linear = nn.Linear(state_size, state_size)
+        self.mu_tanh = nn.Tanh()
+        self.sigma_linear = nn.Linear(state_size, state_size * brownian_size)
+        self.sigma_tanh = nn.Tanh()
 
     # Drift
     def f(self, t, y):
-        return self.mu(y)  # shape (batch_size, state_size)
+        out = self.mu_linear(y)
+        out = self.mu_tanh(out)
+        return out #self.mu_linear(y)  # shape (batch_size, state_size)
 
     # Diffusion
     def g(self, t, y):
-        return self.sigma(y).view(batch_size, state_size, brownian_size)
-
+        out = self.sigma_linear(y).view(batch_size, state_size, brownian_size)
+        out = self.sigma_tanh(out)
+        return out
 
 
 class LatentFSDEfunc(nn.Module):
@@ -86,27 +93,28 @@ class LatentFSDEfunc(nn.Module):
 
     def drift(t, y):
         y = torch.from_numpy(y).float()
-        func_1 = nn.Linear(state_size, state_size)
-        func_2 = nn.Tanh()
-        out = func_1(y)
-        out = func_2(out)
-        out = func_1(out)
+        drift_linear = nn.Linear(state_size, state_size)
+        drift_tanh = nn.Tanh()
+        out = drift_linear(y)
+        out = drift_tanh(out)
         out = out.detach().numpy()
         return out  
 
     def diffusion(t, y):
         y = torch.from_numpy(y).float()
-        func = nn.Linear(state_size, state_size)
-        out = func(y)
+        diff_linear = nn.Linear(state_size, state_size)
+        diff_tanh = nn.Tanh()
+        out = diff_linear(y)
+        out = diff_tanh(out)
         out = out.detach().numpy()
         return out
 
 #print(type(LatentFSDEfunc.drift))
 
 #input = torch.ones(state_size)
-list = range(4)
-input = np.array(list)
+#list = range(4)
+#input = np.array(list)
 #print(type(input))
-output = LatentFSDEfunc.diffusion(t=0, y=input)
+#output = LatentFSDEfunc.diffusion(t=0, y=input)
 #print(output)
 

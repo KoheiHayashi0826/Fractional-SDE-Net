@@ -17,6 +17,7 @@ from neural_net import LatentODEfunc, RecognitionRNN, Decoder
 from neural_net import LatentSDEfunc, state_size, batch_size
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
+from utils import save_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
@@ -42,6 +43,7 @@ from fsde_solver import fsdeint
 
 
 if __name__ == '__main__':
+    data_name = "TOPIX"
     latent_dim = state_size
     batch_dim = batch_size
     nhidden = 20
@@ -55,7 +57,7 @@ if __name__ == '__main__':
 
     # generate TOPIX data
     from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -100,7 +102,7 @@ if __name__ == '__main__':
             #print(z0)
 
             # forward in time and solve ode for reconstructions
-            # dimension of pred_z is (batch_size, t_size, latent_size)
+            # dimension of fsdeint is (batch_size, t_size, latent_size)
             pred_z = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts) #.permute(0, 2, 1)
             #print(pred_z.size())
             pred_x = dec(pred_z).reshape(batch_dim, -1)
@@ -158,25 +160,9 @@ if __name__ == '__main__':
             
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
-        #print(xs_learn[-1], xs_pred[0])
-
-        plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, './vis_fSDE.png')
-        plot_hist(xs_learn, train_data, "./hist_fSDE.png")
+        save_csv(data_name, "fSDE", train_ts_pd, xs_learn.reshape(-1))
+        plot_path(data_name, "fSDE", train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
+        plot_hist(data_name, "fSDE", xs_learn, train_data)
         
 
 
-
-"""
-#batch_size, state_size, brownian_size = 32, 3, 2
-t_size = 100
-
-
-
-sde = LatentSDEfunc()
-y0 = torch.full((batch_size, state_size), 0.1)
-ts = torch.linspace(0, 1, t_size)
-# Initial state y0, the SDE is solved over the interval [ts[0], ts[-1]].
-# ys will have shape (t_size, batch_size, state_size)
-ys = sdeint(sde, y0, ts).permute(0, 2, 1)
-print(ys.size())
-"""

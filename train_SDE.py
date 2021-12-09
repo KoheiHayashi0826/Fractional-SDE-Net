@@ -17,12 +17,16 @@ from neural_net import LatentODEfunc, RecognitionRNN, Decoder
 from neural_net import LatentSDEfunc, state_size, batch_size
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
+from utils import save_csv
+
+import sys
+sys.setrecursionlimit(10000) # defalut = 1000
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
 parser.add_argument('--visualize', type=eval, default=True)
-parser.add_argument('--niters', type=int, default=100) # originally 5000
+parser.add_argument('--niters', type=int, default=6) # originally 5000
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--train_dir', type=str, default=None)
@@ -39,14 +43,13 @@ else:
 
 
 if __name__ == '__main__':
+    data_name = "TOPIX"
     latent_dim = state_size
+    batch_dim = batch_size
     nhidden = 20
     rnn_nhidden = 25
     obs_dim = 1
 
-    batch_dim = batch_size
-    start = 0.
-    stop = 10
     noise_std = 0.1
     
     device = torch.device('cuda:' + str(args.gpu)
@@ -54,7 +57,7 @@ if __name__ == '__main__':
 
     # generate TOPIX data
     from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -100,6 +103,9 @@ if __name__ == '__main__':
 
             # forward in time and solve sde for reconstructions
             # sdeint_out has shepe (t_size, batch_size, state_size)
+            # z0 should have dim (batch_size, state_size) 
+            #print(func_SDE)
+            #print(train_ts, test_ts, z0)
             pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
 
@@ -157,39 +163,12 @@ if __name__ == '__main__':
             
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
-
-        plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, './vis_SDE.png')
-        plot_hist(xs_learn, train_data, "./hist_SDE.png")
-
-
-
-
-"""
-        plt.figure()
-        plt.plot(train_ts, xs_learn, #'r',
-                 label='learned trajectory')
-        plt.plot(test_ts, xs_pred, #'r',
-                 label='predicted trajectory', ls="--")
-        
-        plt.scatter(train_ts, train_data, label='train data', s=3)
-        plt.scatter(test_ts, test_data, label='test data', s=3)
-        plt.legend()
-        plt.savefig('./vis_SDE.png', dpi=500)
-        print('Saved visualization figure at {}'.format('./vis_SDE.png'))
-"""    
-
-
-"""
-#batch_size, state_size, brownian_size = 32, 3, 2
-t_size = 100
+        save_csv(data_name, "SDE", train_ts_pd, xs_learn.reshape(-1))
+        plot_path(data_name, "SDE", train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
+        plot_hist(data_name, "SDE", xs_learn, train_data)
 
 
 
-sde = LatentSDEfunc()
-y0 = torch.full((batch_size, state_size), 0.1)
-ts = torch.linspace(0, 1, t_size)
-# Initial state y0, the SDE is solved over the interval [ts[0], ts[-1]].
-# ys will have shape (t_size, batch_size, state_size)
-ys = sdeint(sde, y0, ts).permute(0, 2, 1)
-print(ys.size())
-"""
+
+
+
