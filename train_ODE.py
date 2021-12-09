@@ -14,7 +14,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from neural_net import LatentODEfunc, RecognitionRNN, Decoder, state_size, batch_size
-from utils import log_normal_pdf, normal_kl
+from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
 
 
@@ -33,25 +33,6 @@ else:
     from torchdiffeq import odeint
 
 
-
-
-class RunningAverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self, momentum=0.99):
-        self.momentum = momentum
-        self.reset()
-
-    def reset(self):
-        self.val = None
-        self.avg = 0
-
-    def update(self, val):
-        if self.val is None:
-            self.avg = val
-        else:
-            self.avg = self.avg * self.momentum + val * (1 - self.momentum)
-        self.val = val
 
 
 

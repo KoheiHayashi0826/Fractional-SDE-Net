@@ -18,8 +18,8 @@ def plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, path)
 
 def plot_hist(xs_learn, train_data, path):
     plt.figure()
-    plt.hist(np.diff(xs_learn.reshape(-1)), alpha=0.7, bins=100, label='learned data')
-    plt.hist(np.diff(train_data.reshape(-1)), alpha=0.5, bins=100, label='real data')  
+    plt.hist(np.diff(xs_learn.reshape(-1)), alpha=0.7, bins=100, label='Generated')
+    plt.hist(np.diff(train_data.reshape(-1)), alpha=0.5, bins=100, label='Historical')  
     plt.legend()
     plt.savefig(path, dpi=500)
     print('Saved visualization figure at {}'.format(path))

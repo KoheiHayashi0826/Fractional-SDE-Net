@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 from neural_net import LatentODEfunc, RecognitionRNN, Decoder
 from neural_net import LatentSDEfunc, state_size, batch_size
-from utils import log_normal_pdf, normal_kl
+from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
 
 parser = argparse.ArgumentParser()
@@ -38,23 +38,6 @@ args = parser.parse_args()
 from fsde_solver import fsdeint
 
 
-class RunningAverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self, momentum=0.99):
-        self.momentum = momentum
-        self.reset()
-
-    def reset(self):
-        self.val = None
-        self.avg = 0
-
-    def update(self, val):
-        if self.val is None:
-            self.avg = val
-        else:
-            self.avg = self.avg * self.momentum + val * (1 - self.momentum)
-        self.val = val
 
 
 
@@ -65,8 +48,6 @@ if __name__ == '__main__':
     rnn_nhidden = 25
     obs_dim = 1
 
-    #start = 0.
-    #stop = 1.
     noise_std = 0.1
     
     device = torch.device('cuda:' + str(args.gpu)
