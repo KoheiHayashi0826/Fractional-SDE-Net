@@ -158,6 +158,7 @@ if __name__ == '__main__':
             
         xs_learn = xs_learn.cpu().numpy()
         xs_pred = xs_pred.cpu().numpy()
+        #print(xs_learn[-1], xs_pred[0])
 
         plot_path(train_ts, xs_learn, test_ts, xs_pred, train_data, test_data, './vis_fSDE.png')
         plot_hist(xs_learn, train_data, "./hist_fSDE.png")
