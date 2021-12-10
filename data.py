@@ -11,23 +11,26 @@ import matplotlib.pyplot as plt
 
 
 
-def get_TOPIX_data(batch_dim=5,
+def get_stock_data(data_name="TPX", batch_dim=10,
                       start=0.,
-                      stop=200, 
+                      stop=1, 
                       noise_std=10):
 
-    train_start = "2010/1/4"
-    train_end = "2015/12/31"
+    train_start = "2020/4/3"
+    train_end = "2020/12/31"
     test_start = train_end
     test_end = "2021/11/11"
 
     data = pd.read_csv("data.csv", index_col="Date").iloc[::-1]
-    data = data[["TPX"]]
+    data = data[[data_name]]
+    #data = data[["SPX"]]
+    #data = data[["SX5E"]]
+    
     
     data = data.loc[train_start:test_end]
     data = np.log(data)
     #data = data.diff()
-    data = (data - data.values.mean()) / data.values.std()  
+    data = (data - data.values.mean()) / data.values.std() 
 
     train_data = data.loc[train_start:train_end]
     test_data = data.loc[test_start:test_end]
@@ -61,11 +64,9 @@ def get_TOPIX_data(batch_dim=5,
 
     return sample_trajs, train_data.values, test_data.values, train_ts_pd, test_ts_pd, train_ts, test_ts
 
-sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data()
+sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
 #print(train_ts.size, test_ts.size)
 #print(len(train_ts_pd), len(test_ts_pd))
-
-
 
 
 def data_plot():

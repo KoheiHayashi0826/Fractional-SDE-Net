@@ -9,8 +9,8 @@ def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_dat
         os.makedirs(dir_name)
     
     plt.figure()
-    plt.scatter(train_ts, xs_learn, label='learned trajectory')
-    plt.scatter(test_ts, xs_pred, label='predicted trajectory') #, ls="--")
+    plt.plot(train_ts, xs_learn, label='learned trajectory')
+    plt.plot(test_ts, xs_pred, label='predicted trajectory') #, ls="--")
     #plt.scatter(train_ts, train_data, label='train data', s=3)
     #plt.scatter(test_ts, test_data, label='test data', s=3)
     plt.plot(train_ts, train_data, label='train data')
@@ -18,7 +18,7 @@ def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_dat
     plt.legend()
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
-    print('Saved visualization figure at {}'.format(file_name))
+    #print('Saved visualization figure at {}'.format(file_name))
 
 
 def plot_hist(data_name, method, xs_learn, train_data):
@@ -32,6 +32,6 @@ def plot_hist(data_name, method, xs_learn, train_data):
     plt.hist(np.diff(train_data.reshape(-1)), alpha=0.5, bins=100, label='Historical')  
     plt.legend()
     plt.savefig(file_name, dpi=500)
-    print('Saved visualization figure at {}'.format(file_name))
+    #print('Saved visualization figure at {}'.format(file_name))
 
 

@@ -32,38 +32,28 @@ def fsdeint(hurst, y0, ts):
     
     t_start = float(ts[0])
     t_end = float(ts[-1])
-    nsteps = 10
-    #y_samples = []
+    nsteps = 1000
     
     B = FBM(n=nsteps, hurst=hurst, length=t_end-t_start).fbm()
     dB = np.diff(B)
-    dt = (t_end - t_start)/nsteps
-    #ts = ts * nsteps / t_end
-    #ts = np.floor(ts).astype(int)
+    dt = (t_end - t_start) / nsteps
     
-    #for i in range(0, batch_size):
     y = np.tile(y0, nsteps + 1).reshape(batch_size, nsteps + 1, -1)
-    #print(y[0].shape, y[1])
-    for s in range(1, nsteps + 1): # range(n) = [0, ..., n-1]
-        y[:,s] = y[:,s-1] + LatentFSDEfunc.drift(s*dt, y[:,s-1]) * dt \
-            + LatentFSDEfunc.diffusion(s*dt, y[:,s-1]) * dB[s-1] # "dB[i]=B[i+1]-B[i]"     
-    #print(y.shape)
-    #print(plt.ylim)
 
+    for k in range(1, nsteps + 1): # range(n) = [0, ..., n-1]
+        y[:,k] = y[:,k-1] + LatentFSDEfunc.drift((k-1)*dt, y[:,k-1]) * dt \
+            + LatentFSDEfunc.diffusion((k-1)*dt, y[:,k-1]) * dB[k-1] # "dB[k]=B[k+1]-B[k]"     
+    
     ts = np.tile(ts, (batch_size , latent_size)).reshape(batch_size, latent_size, ts.size).transpose(0, 2, 1)
-    n_floor = np.floor( (ts - t_start) / dt ).astype(int)
-    n_ceil = np.ceil( (ts - t_start) / dt ).astype(int)
+    num = (ts - t_start) / (t_end -t_start) * nsteps 
+    n_floor = np.floor(num).astype(int)
+    n_ceil = np.ceil(num).astype(int)
     ts_floor = t_start + n_floor * dt
     #ts_ceil = t_start + n_ceil * dt
-    #print(ts_ceil - ts_floor)
-
+    
     y = y[:,n_floor[0,:,0]] + np.multiply(ts - ts_floor, y[:,n_ceil[0,:,0]] - y[:,n_floor[0,:,0]]) / dt 
-    #print(y_sample.shape)
-    #y_samples.append(y_sample)
-    #y_samples = np.stack(y_samples, axis=0)
     y.tolist()
     y = torch.tensor(y, requires_grad=True).float()
-    print(y)
     return y
     
 
@@ -93,6 +83,6 @@ def fbm_path(hurst):
 
 #fbm_path(0.5)
 
-experiment()
+#experiment()
 
 

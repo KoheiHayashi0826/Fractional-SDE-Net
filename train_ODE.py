@@ -18,7 +18,8 @@ from neural_net import LatentODEfunc, RecognitionRNN, Decoder, state_size, batch
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
 from utils import save_csv
-
+from data import get_stock_data
+    
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
 parser.add_argument('--visualize', type=eval, default=True)
@@ -51,8 +52,7 @@ if __name__ == '__main__':
                           if torch.cuda.is_available() else 'cpu')
 
     # generate TOPIX data
-    from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -96,7 +96,6 @@ if __name__ == '__main__':
 
             # forward in time and solve ode for reconstructions
             pred_z = odeint(func, z0, train_ts).permute(1, 0, 2)
-            #print(pred_z.size())
             pred_x = dec(pred_z).reshape(batch_dim, -1)
 
             # compute loss
@@ -144,7 +143,6 @@ if __name__ == '__main__':
             z0 = z0[0]
 
             zs_learn = odeint(func, z0, train_ts)
-            #print(zs_learn.size())
             zs_pred = odeint(func, zs_learn[-1,:], test_ts)
             xs_learn = dec(zs_learn)
             xs_pred = dec(zs_pred)

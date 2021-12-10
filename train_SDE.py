@@ -18,6 +18,7 @@ from neural_net import LatentSDEfunc, state_size, batch_size
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
 from utils import save_csv
+from data import get_stock_data
 
 import sys
 sys.setrecursionlimit(10000) # defalut = 1000
@@ -56,8 +57,7 @@ if __name__ == '__main__':
                           if torch.cuda.is_available() else 'cpu')
 
     # generate TOPIX data
-    from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -156,7 +156,6 @@ if __name__ == '__main__':
             #z0 = torch.full((batch_size, state_size), z0[0])
 
             zs_learn = sdeint(func_SDE, z0, train_ts)
-            #print(zs_learn.size())
             zs_pred = sdeint(func_SDE, zs_learn[-1,:,:], test_ts)
             xs_learn = dec(zs_learn[:,0,:])
             xs_pred = dec(zs_pred[:,0,:])

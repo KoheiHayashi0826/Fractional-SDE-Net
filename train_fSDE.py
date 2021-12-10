@@ -18,7 +18,8 @@ from neural_net import LatentSDEfunc, state_size, batch_size
 from utils import log_normal_pdf, normal_kl, RunningAverageMeter
 from plots import plot_path, plot_hist
 from utils import save_csv
-
+from data import get_stock_data
+    
 parser = argparse.ArgumentParser()
 parser.add_argument('--adjoint', type=eval, default=False)
 parser.add_argument('--visualize', type=eval, default=True)
@@ -42,6 +43,11 @@ from fsde_solver import fsdeint
 
 
 
+
+
+
+
+
 if __name__ == '__main__':
     data_name = "TOPIX"
     latent_dim = state_size
@@ -56,8 +62,7 @@ if __name__ == '__main__':
                           if torch.cuda.is_available() else 'cpu')
 
     # generate TOPIX data
-    from data import get_TOPIX_data
-    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_TOPIX_data(
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data(
         batch_dim=batch_dim)
     sample_trajs = torch.from_numpy(sample_trajs).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -72,21 +77,20 @@ if __name__ == '__main__':
     params = (list(dec.parameters()) + list(rec.parameters()))
     optimizer = optim.Adam(params, lr=args.lr)
     loss_meter = RunningAverageMeter()
-
     
-    if args.train_dir is not None:
-        if not os.path.exists(args.train_dir):
-            os.makedirs(args.train_dir)
-        ckpt_path = os.path.join(args.train_dir, 'ckpt.pth')
-        if os.path.exists(ckpt_path):
-            checkpoint = torch.load(ckpt_path)
-            rec.load_state_dict(checkpoint['rec_state_dict'])
-            dec.load_state_dict(checkpoint['dec_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            sample_trajs = checkpoint['sample_trajs']
-            train_ts = checkpoint['train_ts']
-            test_ts = checkpoint['test_ts']
-            print('Loaded ckpt from {}'.format(ckpt_path))
+    #if args.train_dir is not None:
+    #    if not os.path.exists(args.train_dir):
+    #        os.makedirs(args.train_dir)
+    #    ckpt_path = os.path.join(args.train_dir, 'ckpt.pth')
+    #    if os.path.exists(ckpt_path):
+    #        checkpoint = torch.load(ckpt_path)
+    #        rec.load_state_dict(checkpoint['rec_state_dict'])
+    #        dec.load_state_dict(checkpoint['dec_state_dict'])
+    #        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    #        sample_trajs = checkpoint['sample_trajs']
+    #        train_ts = checkpoint['train_ts']
+    #        test_ts = checkpoint['test_ts']
+    #        print('Loaded ckpt from {}'.format(ckpt_path))
 
     try:
         for itr in range(1, args.niters + 1):
@@ -99,7 +103,6 @@ if __name__ == '__main__':
             qz0_mean, qz0_logvar = out[:, :latent_dim], out[:, latent_dim:]
             epsilon = torch.randn(qz0_mean.size()).to(device)
             z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension is (batch_size, latent_size)
-            #print(z0)
 
             # forward in time and solve ode for reconstructions
             # dimension of fsdeint is (batch_size, t_size, latent_size)
@@ -154,7 +157,7 @@ if __name__ == '__main__':
             #z0 = torch.full((batch_size, state_size), z0[0])
 
             zs_learn = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts)
-            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts-train_ts[-1])
+            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) #-train_ts[-1])
             xs_learn = dec(zs_learn[0,:,:])
             xs_pred = dec(zs_pred[0,:,:])
             
@@ -163,6 +166,6 @@ if __name__ == '__main__':
         save_csv(data_name, "fSDE", train_ts_pd, xs_learn.reshape(-1))
         plot_path(data_name, "fSDE", train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
         plot_hist(data_name, "fSDE", xs_learn, train_data)
-        
+
 
 
