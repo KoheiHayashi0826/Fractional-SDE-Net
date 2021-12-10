@@ -13,19 +13,20 @@ import matplotlib.pyplot as plt
 
 def get_TOPIX_data(batch_dim=5,
                       start=0.,
-                      stop=100, 
+                      stop=200, 
                       noise_std=10):
 
-    train_start = "2000/1/3"
-    train_end = "2020/12/31"
+    train_start = "2010/1/4"
+    train_end = "2015/12/31"
     test_start = train_end
     test_end = "2021/11/11"
 
     data = pd.read_csv("data.csv", index_col="Date").iloc[::-1]
     data = data[["TPX"]]
     
-    #data = data.diff()
     data = data.loc[train_start:test_end]
+    data = np.log(data)
+    #data = data.diff()
     data = (data - data.values.mean()) / data.values.std()  
 
     train_data = data.loc[train_start:train_end]

@@ -45,7 +45,7 @@ def save_csv(data_name, method, ts, data):
         os.makedirs(dir_name)
     data_pd = pd.DataFrame({"Date": ts, "Value": data})
     data_pd.to_csv(file_name)
-    print('Saved generalized path at {}'.format(file_name))
+    print('Saved generated path at {}'.format(file_name))
 
 
 #save_csv("TOPIX", "ODE", [1, 2, 3], [4, 5, 2])

@@ -8,7 +8,7 @@ class LatentODEfunc(nn.Module):
     def __init__(self, latent_dim=4, nhidden=20):
         super(LatentODEfunc, self).__init__()
         self.elu = nn.ELU(inplace=True)
-        self.fc1 = nn.Linear(latent_dim, nhidden)
+        self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
         self.fc2 = nn.Linear(nhidden, nhidden)
         self.fc3 = nn.Linear(nhidden, latent_dim)
         self.nfe = 0
@@ -67,23 +67,35 @@ class LatentSDEfunc(nn.Module):
     noise_type = 'general'
     sde_type = 'ito'
 
-    def __init__(self):
+    def __init__(self, nhidden=20):
         super().__init__()
-        self.mu_linear = nn.Linear(state_size, state_size)
-        self.mu_tanh = nn.Tanh()
-        self.sigma_linear = nn.Linear(state_size, state_size * brownian_size)
-        self.sigma_tanh = nn.Tanh()
+        self.drift_fc1 = nn.Linear(state_size, nhidden)
+        self.drift_fc2 = nn.Linear(nhidden, nhidden)
+        self.drift_fc3 = nn.Linear(nhidden, state_size)
+        self.drift_elu = nn.ELU()
+        
+        self.diff_fc1 = nn.Linear(state_size, nhidden)
+        self.diff_fc2 = nn.Linear(nhidden, nhidden)
+        self.diff_fc3 = nn.Linear(nhidden, state_size * brownian_size)
+        self.diff_elu = nn.ELU()
 
     # Drift
     def f(self, t, y):
-        out = self.mu_linear(y)
-        out = self.mu_tanh(out)
+        out = self.drift_fc1(y)
+        out = self.drift_elu(out)
+        out = self.drift_fc2(out)
+        out = self.drift_elu(out)
+        out = self.drift_fc3(out)
+        out = self.drift_elu(out)
         return out #self.mu_linear(y)  # shape (batch_size, state_size)
 
     # Diffusion
     def g(self, t, y):
-        out = self.sigma_linear(y).view(batch_size, state_size, brownian_size)
-        out = self.sigma_tanh(out)
+        out = self.diff_fc1(y)
+        out = self.diff_elu(out)
+        out = self.diff_fc2(out)
+        out = self.diff_elu(out)
+        out = self.diff_fc3(out).view(batch_size, state_size, brownian_size)
         return out
 
 
@@ -92,20 +104,32 @@ class LatentFSDEfunc(nn.Module):
     #    pass
 
     def drift(t, y):
+        nhidden = 20
         y = torch.from_numpy(y).float()
-        drift_linear = nn.Linear(state_size, state_size)
-        drift_tanh = nn.Tanh()
-        out = drift_linear(y)
-        out = drift_tanh(out)
+        drift_fc1 = nn.Linear(state_size, nhidden)
+        drift_fc2 = nn.Linear(nhidden, nhidden)
+        drift_fc3 = nn.Linear(nhidden, state_size)
+        drift_elu = nn.ELU()
+        out = drift_fc1(y)
+        out = drift_elu(out)
+        out = drift_fc2(out)
+        out = drift_elu(out)
+        out = drift_fc3(out)
         out = out.detach().numpy()
         return out  
 
     def diffusion(t, y):
+        nhidden= 20
         y = torch.from_numpy(y).float()
-        diff_linear = nn.Linear(state_size, state_size)
-        diff_tanh = nn.Tanh()
-        out = diff_linear(y)
-        out = diff_tanh(out)
+        diff_fc1 = nn.Linear(state_size, nhidden)
+        diff_fc2 = nn.Linear(nhidden, nhidden)
+        diff_fc3 = nn.Linear(nhidden, state_size)
+        diff_elu = nn.Tanh()
+        out = diff_fc1(y)
+        out = diff_elu(out)
+        out = diff_fc2(out)
+        out = diff_elu(out)
+        out = diff_fc3(out)
         out = out.detach().numpy()
         return out
 

@@ -9,8 +9,8 @@ def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_dat
         os.makedirs(dir_name)
     
     plt.figure()
-    plt.plot(train_ts, xs_learn, label='learned trajectory')
-    plt.plot(test_ts, xs_pred, label='predicted trajectory') #, ls="--")
+    plt.scatter(train_ts, xs_learn, label='learned trajectory')
+    plt.scatter(test_ts, xs_pred, label='predicted trajectory') #, ls="--")
     #plt.scatter(train_ts, train_data, label='train data', s=3)
     #plt.scatter(test_ts, test_data, label='test data', s=3)
     plt.plot(train_ts, train_data, label='train data')
