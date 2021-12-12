@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_data, test_data):
-    dir_name = "./result/" + data_name + "/path_fig"
+    dir_name = "../result/" + data_name + "/path_fig"
     file_name = dir_name + f"/{method}.png"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -22,7 +22,7 @@ def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_dat
 
 
 def plot_hist(data_name, method, xs_learn, train_data):
-    dir_name = "./result/" + data_name + "/histgram"
+    dir_name = "../result/" + data_name + "/histgram"
     file_name = dir_name + f"/{method}.png"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

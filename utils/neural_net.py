@@ -1,17 +1,22 @@
 import numpy as np
-from numpy.core.fromnumeric import put
+#from numpy.core.fromnumeric import put
 import torch
+#from torch._C import T
 import torch.nn as nn
+from torch.nn import init
 
 
 class LatentODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20):
+    def __init__(self, latent_dim=4, nhidden=20, gain=2):
         super(LatentODEfunc, self).__init__()
         self.elu = nn.ELU(inplace=True)
         self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
         self.fc2 = nn.Linear(nhidden, nhidden)
         self.fc3 = nn.Linear(nhidden, latent_dim)
+        nn.init.xavier_normal_(self.fc1.weight, gain)
+        nn.init.xavier_normal_(self.fc2.weight, gain)
+        nn.init.xavier_normal_(self.fc3.weight, gain)
         self.nfe = 0
 
     def forward(self, t, x):
@@ -61,23 +66,34 @@ class Decoder(nn.Module):
         return out
 
 # Hyperperameters for SDE- and fSDE-Net
-batch_dim, latent_dim, brownian_dim = 11, 4, 1
+batch_dim, latent_dim, bm_dim = 11, 4, 1
 
 class LatentSDEfunc(nn.Module):
     noise_type = 'general'
     sde_type = 'ito'
 
-    def __init__(self, nhidden=20, latent_dim=4, brownian_size=1):
+    def __init__(self, nhidden=20, latent_dim=latent_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=2):
         super().__init__()
+        self.nhidden = nhidden
+        self.latent_dim = latent_dim
+        self.bm_dim = bm_dim
+        self.batch_dim = batch_dim
+
         self.drift_fc1 = nn.Linear(latent_dim, nhidden)
         self.drift_fc2 = nn.Linear(nhidden, nhidden)
         self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        self.drift_elu = nn.Tanh()
+        nn.init.xavier_normal_(self.drift_fc1.weight, gain)
+        nn.init.xavier_normal_(self.drift_fc2.weight, gain)
+        nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+        self.drift_elu = nn.ELU(inplace=True)
         
         self.diff_fc1 = nn.Linear(latent_dim, nhidden)
         self.diff_fc2 = nn.Linear(nhidden, nhidden)
-        self.diff_fc3 = nn.Linear(nhidden, latent_dim * brownian_size)
-        self.diff_elu = nn.Tanh()
+        self.diff_fc3 = nn.Linear(nhidden, latent_dim * bm_dim)
+        nn.init.xavier_normal_(self.diff_fc1.weight, gain)
+        nn.init.xavier_normal_(self.diff_fc2.weight, gain)
+        nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+        self.diff_elu = nn.ELU(inplace=True)
 
     # Drift
     def f(self, t, y):
@@ -95,21 +111,74 @@ class LatentSDEfunc(nn.Module):
         out = self.diff_elu(out)
         out = self.diff_fc2(out)
         out = self.diff_elu(out)
-        out = self.diff_fc3(out).view(batch_dim, latent_dim, brownian_dim)
+        out = self.diff_fc3(out).view(self.batch_dim, self.latent_dim, self.bm_dim)
         return out
 
 
 class LatentFSDEfunc(nn.Module):
-    #def __init__(self):
-    #    pass
 
+    def __init__(self, nhidden=20, latent_dim=4, drift_gain=2, diff_gain=2):
+        super().__init__()
+        self.drift_fc1 = nn.Linear(latent_dim, nhidden)
+        self.drift_fc2 = nn.Linear(nhidden, nhidden)
+        self.drift_fc3 = nn.Linear(nhidden, latent_dim)
+        nn.init.xavier_normal_(self.drift_fc1.weight, gain=drift_gain)
+        nn.init.xavier_normal_(self.drift_fc2.weight, gain=drift_gain)
+        nn.init.xavier_normal_(self.drift_fc3.weight, gain=drift_gain)
+        self.drift_elu = nn.ELU(inplace=True)
+        
+        self.diff_fc1 = nn.Linear(latent_dim, nhidden)
+        self.diff_fc2 = nn.Linear(nhidden, nhidden)
+        self.diff_fc3 = nn.Linear(nhidden, latent_dim)
+        nn.init.xavier_normal_(self.diff_fc1.weight, gain=diff_gain)
+        nn.init.xavier_normal_(self.diff_fc2.weight, gain=diff_gain)
+        nn.init.xavier_normal_(self.diff_fc3.weight, gain=diff_gain)
+        self.diff_elu = nn.ELU(inplace=True)
+
+
+    def drift(self, t, y):
+        y = torch.from_numpy(y).float()
+        out = self.drift_fc1(y)
+        out = self.drift_elu(out)
+        out = self.drift_fc2(out)
+        out = self.drift_elu(out)
+        out = self.drift_fc3(out)
+        out = out.detach().numpy()
+        return out  
+
+    def diffusion(self, t, y):
+        y = torch.from_numpy(y).float()
+        out = self.diff_fc1(y)
+        out = self.diff_elu(out)
+        out = self.diff_fc2(out)
+        out = self.diff_elu(out)
+        out = self.diff_fc3(out)
+        out = out.detach().numpy()
+        return out
+
+
+def experiment():
+    list = range(4)
+    input = np.array(list)
+    func_fSDE = LatentFSDEfunc()
+    output = func_fSDE.drift(t=0, y=input)
+    print(output)
+
+#experiment()
+
+
+"""
+class LatentFSDEfunc(nn.Module):
+#    def __init__(self, nhidden=20, latent_dim=4):
+#        super().__init__()
+    
     def drift(t, y):
         nhidden = 20
         y = torch.from_numpy(y).float()
         drift_fc1 = nn.Linear(latent_dim, latent_dim) #nhidden
         drift_fc2 = nn.Linear(nhidden, nhidden)
         drift_fc3 = nn.Linear(nhidden, latent_dim)
-        drift_tanh = nn.Tanh()
+        drift_tanh = nn.ELU()
         out = drift_fc1(y)
         out = drift_tanh(out)
         #out = drift_fc2(out)
@@ -124,7 +193,7 @@ class LatentFSDEfunc(nn.Module):
         diff_fc1 = nn.Linear(latent_dim, latent_dim) # nhidden)
         diff_fc2 = nn.Linear(nhidden, nhidden)
         diff_fc3 = nn.Linear(nhidden, latent_dim)
-        diff_elu = nn.Tanh()
+        diff_elu = nn.ELU()
         out = diff_fc1(y)
         out = diff_elu(out)
         #out = diff_fc2(out)
@@ -132,13 +201,5 @@ class LatentFSDEfunc(nn.Module):
         #out = diff_fc3(out)
         out = out.detach().numpy()
         return out
-
-#print(type(LatentFSDEfunc.drift))
-
-#input = torch.ones(state_size)
-#list = range(4)
-#input = np.array(list)
-#print(type(input))
-#output = LatentFSDEfunc.diffusion(t=0, y=input)
-#print(output)
+"""
 

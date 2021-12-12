@@ -39,7 +39,7 @@ class RunningAverageMeter(object):
 
 
 def save_csv(data_name, method, ts, data):
-    dir_name = "./result/" + data_name + "/path_csv"
+    dir_name = "../result/" + data_name + "/path_csv"
     file_name = dir_name + f"/{method}.csv"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

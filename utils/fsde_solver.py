@@ -6,14 +6,16 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from fbm import FBM
-from neural_net import LatentFSDEfunc
+
+from utils.neural_net import LatentFSDEfunc
 
 device = "cpu" 
 #torch.device('cuda:' if torch.cuda.is_available() else 'cpu')
 #device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def fsdeint(hurst, y0, ts):
+
+def fsdeint(func_fSDE, hurst, y0, ts):
     """ Solve fSDE of type "dy_t = b(t, y_t)dt + sigma(t, y_t)dB_t".
         First solve discrete steps and then linearly interpolate to return valued in ts.
     input:  
@@ -32,7 +34,7 @@ def fsdeint(hurst, y0, ts):
     
     t_start = float(ts[0])
     t_end = float(ts[-1])
-    nsteps = 1000
+    nsteps = 5000
     
     B = FBM(n=nsteps, hurst=hurst, length=t_end-t_start).fbm()
     dB = np.diff(B)
@@ -41,8 +43,8 @@ def fsdeint(hurst, y0, ts):
     y = np.tile(y0, nsteps + 1).reshape(batch_size, nsteps + 1, -1)
 
     for k in range(1, nsteps + 1): # range(n) = [0, ..., n-1]
-        y[:,k] = y[:,k-1] + LatentFSDEfunc.drift((k-1)*dt, y[:,k-1]) * dt \
-            + LatentFSDEfunc.diffusion((k-1)*dt, y[:,k-1]) * dB[k-1] # "dB[k]=B[k+1]-B[k]"     
+        y[:,k] = y[:,k-1] + func_fSDE.drift((k-1)*dt, y[:,k-1]) * dt \
+            + func_fSDE.diffusion((k-1)*dt, y[:,k-1]) * dB[k-1] # "dB[k]=B[k+1]-B[k]"     
     
     ts = np.tile(ts, (batch_size , latent_size)).reshape(batch_size, latent_size, ts.size).transpose(0, 2, 1)
     num = (ts - t_start) / (t_end -t_start) * nsteps 
@@ -58,11 +60,13 @@ def fsdeint(hurst, y0, ts):
     
 
 def experiment():
+    func_fSDE = LatentFSDEfunc().to(device)
+
     list = range(7) # = [0, ..., 100]
     with torch.no_grad():
         ts = torch.tensor(list)
         y0 = torch.rand(5, 4)
-    y = fsdeint(hurst=0.5, y0=y0, ts=ts)
+    y = fsdeint(func_fSDE, hurst=0.5, y0=y0, ts=ts)
     #print(y, y.size())
     #y= y.detach().numpy().copy()
     
@@ -83,6 +87,6 @@ def fbm_path(hurst):
 
 #fbm_path(0.5)
 
-#experiment()
+experiment()
 
 

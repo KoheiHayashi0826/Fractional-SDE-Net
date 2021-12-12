@@ -5,6 +5,8 @@ import time
 import numpy as np
 import numpy.random as npr
 import matplotlib
+from tqdm import tqdm
+
 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -13,24 +15,24 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from neural_net import LatentODEfunc, RecognitionRNN, Decoder
-from neural_net import LatentSDEfunc, latent_dim, batch_dim
-from utils import log_normal_pdf, normal_kl, RunningAverageMeter
-from plots import plot_path, plot_hist
-from utils import save_csv
-from data import get_stock_data
+from utils.neural_net import LatentFSDEfunc, LatentODEfunc, RecognitionRNN, Decoder
+from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim
+from utils.utils import log_normal_pdf, normal_kl, RunningAverageMeter
+from utils.plots import plot_path, plot_hist
+from utils.utils import save_csv
+from data.data import get_stock_data
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=6) # originally 5000
 parser.add_argument('--lr', type=float, default=0.01)
-parser.add_argument('--hurst', type=float, default=0.7)
+parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
 args = parser.parse_args()
 
-DICT_DATANAME = ["TPX", "SPX", "SX5E"]
-DICT_METHOD = ["ODE", "SDE", "fSDE"]
+DICT_DATANAME = ["TPX"] #, "SPX", "SX5E"]
+DICT_METHOD = ["fSDE"] #["ODE", "SDE", "fSDE"]
 
 
 if args.ode_adjoint:
@@ -41,7 +43,7 @@ if args.sde_adjoint:
     from torchsde import sdeint_adjoint as sdeint
 else:
     from torchsde import sdeint
-from fsde_solver import fsdeint
+from utils.fsde_solver import fsdeint
 
 
 def train(data_name, method):
@@ -49,7 +51,7 @@ def train(data_name, method):
     rnn_nhidden = 25
     obs_dim = 1
 
-    noise_std = 0.01
+    noise_std = 0.0001
     
     device = torch.device('cuda:' + str(args.gpu)
                           if torch.cuda.is_available() else 'cpu')
@@ -62,15 +64,17 @@ def train(data_name, method):
     test_ts = torch.from_numpy(test_ts).float().to(device)
 
     # model
+    # Call instance
     func_ODE = LatentODEfunc().to(device) #latent_dim, nhidden).to(device)
     func_SDE = LatentSDEfunc().to(device)
+    func_fSDE = LatentFSDEfunc().to(device)
     rec = RecognitionRNN(latent_dim, obs_dim, rnn_nhidden, batch_dim).to(device)
     dec = Decoder(latent_dim, obs_dim, nhidden).to(device)
     params = (list(dec.parameters()) + list(rec.parameters()))
     optimizer = optim.Adam(params, lr=args.lr)
     loss_meter = RunningAverageMeter()
     
-    for itr in range(1, args.niters + 1):
+    for itr in tqdm(range(1, args.niters + 1)):
         optimizer.zero_grad()
         # backward in time to infer q(z_0)
         h = rec.initHidden().to(device)
@@ -79,7 +83,7 @@ def train(data_name, method):
             out, h = rec.forward(obs, h)
         qz0_mean, qz0_logvar = out[:, :latent_dim], out[:, latent_dim:]
         epsilon = torch.randn(qz0_mean.size()).to(device)
-        z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension is (batch_size, latent_size)
+        z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension (batch_size, latent_size)
 
         # forward in time and solve differential equation for reconstructions
         if method=="ODE":
@@ -88,10 +92,9 @@ def train(data_name, method):
         elif method=="SDE":
             pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
-
         elif method=="fSDE":
             # dimension of fsdeint is (batch_size, t_size, latent_size)
-            pred_z = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts) #.permute(0, 2, 1)
+            pred_z = fsdeint(func_fSDE, hurst=args.hurst, y0=z0, ts=train_ts) #.permute(0, 2, 1)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
 
         # compute loss
@@ -106,8 +109,8 @@ def train(data_name, method):
         loss.backward()
         optimizer.step()
         loss_meter.update(loss.item())
-        if itr%5==0:
-            print('Iter: {}, running avg elbo: {:.4f}'.format(itr, -loss_meter.avg))
+        #if itr%5==0:
+        #    print('Iter: {}, running avg elbo: {:.4f}'.format(itr, -loss_meter.avg))
     print(f'Training complete after {itr} iters.\n')
 
 
@@ -133,8 +136,8 @@ def train(data_name, method):
             xs_learn = dec(zs_learn[:,0,:])
             xs_pred = dec(zs_pred[:,0,:])
         elif method=="fSDE":
-            zs_learn = fsdeint(hurst=args.hurst, y0=z0, ts=train_ts)
-            zs_pred = fsdeint(hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) 
+            zs_learn = fsdeint(func_fSDE, hurst=args.hurst, y0=z0, ts=train_ts)
+            zs_pred = fsdeint(func_fSDE, hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) 
             xs_learn = dec(zs_learn[0,:,:])
             xs_pred = dec(zs_pred[0,:,:])
             
