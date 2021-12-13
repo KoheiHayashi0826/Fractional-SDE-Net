@@ -38,12 +38,12 @@ class RunningAverageMeter(object):
         self.val = val
 
 
-def save_csv(data_name, method, ts, data):
+def save_csv(data_name, method, ts, data_ori, data):
     dir_name = "../result/" + data_name + "/path_csv"
     file_name = dir_name + f"/{method}.csv"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    data_pd = pd.DataFrame({"Date": ts, "Value": data})
+    data_pd = pd.DataFrame({"Date": ts, data_name: data_ori, "Value": data})
     data_pd.to_csv(file_name)
     #print('Saved generated path at {}'.format(file_name))
 

@@ -1,6 +1,8 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os
+import scipy.stats
 
 def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_data, test_data):
     dir_name = "../result/" + data_name + "/path_fig"
@@ -27,10 +29,34 @@ def plot_hist(data_name, method, xs_learn, train_data):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     
-    plt.figure()
-    plt.hist(np.diff(xs_learn.reshape(-1)), alpha=0.7, bins=100, label='Generated')
-    plt.hist(np.diff(train_data.reshape(-1)), alpha=0.5, bins=100, label='Historical')  
-    plt.legend()
+    nbins = 100
+    fig = plt.figure(figsize=(16, 8))
+    fig1 = fig.add_subplot(1, 2, 1)
+    fig2 = fig.add_subplot(1, 2, 2)
+
+    data = xs_learn.reshape(-1)
+    data = np.diff(data)
+    data = (data - np.mean(data)) / np.std(data)
+    s = scipy.stats.skew(data)
+    k = scipy.stats.kurtosis(data)
+    
+    data_ori = train_data.reshape(-1)
+    data_ori = np.diff(data_ori)
+    data_ori = (data_ori - np.mean(data_ori)) / np.std(data_ori)
+    s_ori = scipy.stats.skew(data_ori)
+    k_ori = scipy.stats.kurtosis(data_ori)
+
+    fig1.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True)
+    fig1.hist(data_ori, alpha=0.5, bins=nbins, label='Historical', density=True) 
+    fig1.set_title(f"pdf, skew={s:.02f}, kurtosis={k:.02f}") 
+    #fig1.text(0, 0, "a")
+
+    fig2.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True, log=True)
+    fig2.hist(data_ori, alpha=0.5, bins=nbins, label='Historical', density=True, log=True)  
+    fig2.set_title(f"log-pdf, skew={s_ori:.02f}, kurtosis={k_ori:.02f}") 
+    
+    fig1.legend()
+    fig2.legend()
     plt.savefig(file_name, dpi=500)
     #print('Saved visualization figure at {}'.format(file_name))
 

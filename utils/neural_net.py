@@ -5,10 +5,11 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 
+init_gain = 1
 
 class LatentODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20, gain=2):
+    def __init__(self, latent_dim=4, nhidden=20, gain=init_gain):
         super(LatentODEfunc, self).__init__()
         self.elu = nn.ELU(inplace=True)
         self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
@@ -72,7 +73,7 @@ class LatentSDEfunc(nn.Module):
     noise_type = 'general'
     sde_type = 'ito'
 
-    def __init__(self, nhidden=20, latent_dim=latent_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=2):
+    def __init__(self, nhidden=20, latent_dim=latent_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=init_gain):
         super().__init__()
         self.nhidden = nhidden
         self.latent_dim = latent_dim
@@ -117,22 +118,22 @@ class LatentSDEfunc(nn.Module):
 
 class LatentFSDEfunc(nn.Module):
 
-    def __init__(self, nhidden=20, latent_dim=4, drift_gain=2, diff_gain=2):
+    def __init__(self, nhidden=20, latent_dim=4, gain=init_gain):
         super().__init__()
         self.drift_fc1 = nn.Linear(latent_dim, nhidden)
         self.drift_fc2 = nn.Linear(nhidden, nhidden)
         self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.drift_fc1.weight, gain=drift_gain)
-        nn.init.xavier_normal_(self.drift_fc2.weight, gain=drift_gain)
-        nn.init.xavier_normal_(self.drift_fc3.weight, gain=drift_gain)
+        nn.init.xavier_normal_(self.drift_fc1.weight, gain)
+        nn.init.xavier_normal_(self.drift_fc2.weight, gain)
+        nn.init.xavier_normal_(self.drift_fc3.weight, gain)
         self.drift_elu = nn.ELU(inplace=True)
         
         self.diff_fc1 = nn.Linear(latent_dim, nhidden)
         self.diff_fc2 = nn.Linear(nhidden, nhidden)
         self.diff_fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.diff_fc1.weight, gain=diff_gain)
-        nn.init.xavier_normal_(self.diff_fc2.weight, gain=diff_gain)
-        nn.init.xavier_normal_(self.diff_fc3.weight, gain=diff_gain)
+        nn.init.xavier_normal_(self.diff_fc1.weight, gain)
+        nn.init.xavier_normal_(self.diff_fc2.weight, gain)
+        nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         self.diff_elu = nn.ELU(inplace=True)
 
 

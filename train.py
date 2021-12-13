@@ -31,8 +31,10 @@ parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
 args = parser.parse_args()
 
-DICT_DATANAME = ["TPX"] #, "SPX", "SX5E"]
-DICT_METHOD = ["fSDE"] #["ODE", "SDE", "fSDE"]
+#DICT_DATANAME = ["TPX"] 
+DICT_DATANAME = ["TPX", "SPX", "SX5E"]
+#DICT_METHOD = ["fSDE"]
+DICT_METHOD = ["ODE", "SDE", "fSDE"]
 
 
 if args.ode_adjoint:
@@ -144,7 +146,7 @@ def train(data_name, method):
 
     xs_learn = xs_learn.cpu().numpy()
     xs_pred = xs_pred.cpu().numpy()
-    save_csv(data_name, method, train_ts_pd, xs_learn.reshape(-1))
+    save_csv(data_name, method, train_ts_pd, train_data.reshape(-1), xs_learn.reshape(-1))
     plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
     plot_hist(data_name, method, xs_learn, train_data)
 

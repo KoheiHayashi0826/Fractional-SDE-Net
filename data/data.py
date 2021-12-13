@@ -1,4 +1,6 @@
-from posixpath import curdir
+import os
+
+#from posixpath import curdir
 from matplotlib import colors
 import numpy as np
 #from numpy.core.fromnumeric import transpose
@@ -9,21 +11,20 @@ import pandas as pd
 #from torch.utils.data import dataloader
 import matplotlib.pyplot as plt
 
-import os
 
 
 def get_stock_data(data_name="TPX", batch_dim=10,
                       start=0.,
-                      stop=1, 
+                      stop=10, 
                       noise_std=10):
 
-    train_start = "2010/1/4"
-    train_end = "2015/12/31"
+    train_start = "1990/1/3"
+    train_end = "2020/12/31"
     test_start = train_end
     test_end = "2021/11/11"
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    data = pd.read_csv("data.csv", index_col="Date").iloc[::-1]
+    data = pd.read_csv("data.csv", index_col="Date").iloc[::-1].dropna()
     data = data[[data_name]]
     #data = data[["SPX"]]
     #data = data[["SX5E"]]
