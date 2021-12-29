@@ -35,7 +35,7 @@ def plot_hist(data_name, method, xs_learn, train_data):
     fig2 = fig.add_subplot(1, 2, 2)
 
     data = xs_learn.reshape(-1)
-    data = np.diff(data)
+    data = np.diff(data) # calculate return 
     data = (data - np.mean(data)) / np.std(data)
     s = scipy.stats.skew(data)
     k = scipy.stats.kurtosis(data)

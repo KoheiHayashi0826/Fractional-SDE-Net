@@ -31,10 +31,10 @@ parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
 args = parser.parse_args()
 
-#DICT_DATANAME = ["TPX"] 
-DICT_DATANAME = ["TPX", "SPX", "SX5E"]
-#DICT_METHOD = ["fSDE"]
-DICT_METHOD = ["ODE", "SDE", "fSDE"]
+DICT_DATANAME = ["TPX"] 
+#DICT_DATANAME = ["TPX", "SPX", "SX5E"]
+DICT_METHOD = ["SDE"]
+#DICT_METHOD = ["ODE", "SDE", "fSDE"]
 
 
 if args.ode_adjoint:
@@ -53,7 +53,7 @@ def train(data_name, method):
     rnn_nhidden = 25
     obs_dim = 1
 
-    noise_std = 0.0001
+    noise_std = 10
     
     device = torch.device('cuda:' + str(args.gpu)
                           if torch.cuda.is_available() else 'cpu')
@@ -67,16 +67,22 @@ def train(data_name, method):
 
     # model
     # Call instance
-    func_ODE = LatentODEfunc().to(device) #latent_dim, nhidden).to(device)
-    func_SDE = LatentSDEfunc().to(device)
-    func_fSDE = LatentFSDEfunc().to(device)
     rec = RecognitionRNN(latent_dim, obs_dim, rnn_nhidden, batch_dim).to(device)
     dec = Decoder(latent_dim, obs_dim, nhidden).to(device)
-    params = (list(dec.parameters()) + list(rec.parameters()))
+    if method == "ODE":
+        func_ODE = LatentODEfunc().to(device)
+        params = (list(func_ODE.parameters()) + list(dec.parameters()) + list(rec.parameters()))
+    elif method == "SDE":
+        func_SDE = LatentSDEfunc().to(device)
+        params = (list(func_SDE.parameters()) + list(dec.parameters()) + list(rec.parameters()))
+    elif method == "fSDE":
+        func_fSDE = LatentFSDEfunc().to(device)
+        params = (list(func_fSDE.parameters()) + list(dec.parameters()) + list(rec.parameters()))
+
     optimizer = optim.Adam(params, lr=args.lr)
     loss_meter = RunningAverageMeter()
     
-    for itr in tqdm(range(1, args.niters + 1)):
+    for itr in range(1, args.niters + 1): #tqdm(range(1, args.niters + 1)):
         optimizer.zero_grad()
         # backward in time to infer q(z_0)
         h = rec.initHidden().to(device)
@@ -88,13 +94,13 @@ def train(data_name, method):
         z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension (batch_size, latent_size)
 
         # forward in time and solve differential equation for reconstructions
-        if method=="ODE":
+        if method == "ODE":
             pred_z = odeint(func_ODE, z0, train_ts).permute(1, 0, 2)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
-        elif method=="SDE":
+        elif method == "SDE":
             pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
-        elif method=="fSDE":
+        elif method == "fSDE":
             # dimension of fsdeint is (batch_size, t_size, latent_size)
             pred_z = fsdeint(func_fSDE, hurst=args.hurst, y0=z0, ts=train_ts) #.permute(0, 2, 1)
             pred_x = dec(pred_z).reshape(batch_dim, -1)
@@ -111,8 +117,8 @@ def train(data_name, method):
         loss.backward()
         optimizer.step()
         loss_meter.update(loss.item())
-        #if itr%5==0:
-        #    print('Iter: {}, running avg elbo: {:.4f}'.format(itr, -loss_meter.avg))
+        if itr%5==0:
+            print('Iter: {}, running avg elbo: {:.4f}'.format(itr, -loss_meter.avg))
     print(f'Training complete after {itr} iters.\n')
 
 
@@ -126,23 +132,23 @@ def train(data_name, method):
         epsilon = torch.randn(qz0_mean.size()).to(device)
         z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
 
-        if method=="ODE":
+        if method == "ODE":
             z0 = z0[0]
             zs_learn = odeint(func_ODE, z0, train_ts)
             zs_pred = odeint(func_ODE, zs_learn[-1,:], test_ts)
             xs_learn = dec(zs_learn)
             xs_pred = dec(zs_pred)
-        elif method=="SDE":
+        elif method == "SDE":
             zs_learn = sdeint(func_SDE, z0, train_ts)
             zs_pred = sdeint(func_SDE, zs_learn[-1,:,:], test_ts)
             xs_learn = dec(zs_learn[:,0,:])
             xs_pred = dec(zs_pred[:,0,:])
-        elif method=="fSDE":
+        elif method == "fSDE":
             zs_learn = fsdeint(func_fSDE, hurst=args.hurst, y0=z0, ts=train_ts)
             zs_pred = fsdeint(func_fSDE, hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) 
             xs_learn = dec(zs_learn[0,:,:])
             xs_pred = dec(zs_pred[0,:,:])
-            
+
 
     xs_learn = xs_learn.cpu().numpy()
     xs_pred = xs_pred.cpu().numpy()

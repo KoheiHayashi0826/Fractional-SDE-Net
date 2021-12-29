@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 #from numpy.core.fromnumeric import put
 import torch
@@ -5,7 +6,9 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 
-init_gain = 1
+boole_xavier_normal = True
+init_gain = 2
+
 
 class LatentODEfunc(nn.Module):
 
@@ -15,9 +18,10 @@ class LatentODEfunc(nn.Module):
         self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
         self.fc2 = nn.Linear(nhidden, nhidden)
         self.fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.fc1.weight, gain)
-        nn.init.xavier_normal_(self.fc2.weight, gain)
-        nn.init.xavier_normal_(self.fc3.weight, gain)
+        if boole_xavier_normal:
+            nn.init.xavier_normal_(self.fc1.weight, gain)
+            nn.init.xavier_normal_(self.fc2.weight, gain)
+            nn.init.xavier_normal_(self.fc3.weight, gain)
         self.nfe = 0
 
     def forward(self, t, x):
@@ -83,17 +87,18 @@ class LatentSDEfunc(nn.Module):
         self.drift_fc1 = nn.Linear(latent_dim, nhidden)
         self.drift_fc2 = nn.Linear(nhidden, nhidden)
         self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.drift_fc1.weight, gain)
-        nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-        nn.init.xavier_normal_(self.drift_fc3.weight, gain)
         self.drift_elu = nn.ELU(inplace=True)
         
         self.diff_fc1 = nn.Linear(latent_dim, nhidden)
         self.diff_fc2 = nn.Linear(nhidden, nhidden)
         self.diff_fc3 = nn.Linear(nhidden, latent_dim * bm_dim)
-        nn.init.xavier_normal_(self.diff_fc1.weight, gain)
-        nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-        nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+        if boole_xavier_normal:
+            nn.init.xavier_normal_(self.drift_fc1.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc2.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc1.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc2.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         self.diff_elu = nn.ELU(inplace=True)
 
     # Drift
@@ -123,17 +128,18 @@ class LatentFSDEfunc(nn.Module):
         self.drift_fc1 = nn.Linear(latent_dim, nhidden)
         self.drift_fc2 = nn.Linear(nhidden, nhidden)
         self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.drift_fc1.weight, gain)
-        nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-        nn.init.xavier_normal_(self.drift_fc3.weight, gain)
         self.drift_elu = nn.ELU(inplace=True)
         
         self.diff_fc1 = nn.Linear(latent_dim, nhidden)
         self.diff_fc2 = nn.Linear(nhidden, nhidden)
         self.diff_fc3 = nn.Linear(nhidden, latent_dim)
-        nn.init.xavier_normal_(self.diff_fc1.weight, gain)
-        nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-        nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+        if boole_xavier_normal:
+            nn.init.xavier_normal_(self.drift_fc1.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc2.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc1.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc2.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         self.diff_elu = nn.ELU(inplace=True)
 
 

@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 
 def get_stock_data(data_name="TPX", batch_dim=10,
                       start=0.,
-                      stop=10, 
+                      stop=1, 
                       noise_std=10):
 
-    train_start = "1990/1/3"
+    train_start = "2010/1/4"
     train_end = "2020/12/31"
     test_start = train_end
     test_end = "2021/11/11"
@@ -31,8 +31,7 @@ def get_stock_data(data_name="TPX", batch_dim=10,
     
     
     data = data.loc[train_start:test_end]
-    #data = np.log(data)
-    #data = data.diff()
+    data = np.log(data)
     data = (data - data.values.mean()) / data.values.std()
 
     train_data = data.loc[train_start:train_end]
@@ -71,7 +70,6 @@ sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts 
 #print(train_ts.size, test_ts.size)
 #print(len(train_ts_pd), len(test_ts_pd))
 
-
 def data_plot():
     data_pd = pd.read_csv("data.csv", index_col="Date")
     data_pd = data_pd[["TPX"]]
@@ -90,9 +88,10 @@ def data_plot():
     ts = ts.map(pd.Timestamp.timestamp).values
     ts_normal = (ts - ts[0]) / (ts[-1] - ts[0])
     
-    data_pd = data.set_index(["Date"])
-    #print(data_pd[["TPX"]].loc[train_start:train_end])
-      
-    #print(ts_normal)
-    
-data_plot()
+    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
+    #print(train_ts, train_data)
+    plt.figure()
+    plt.plot(train_ts, train_data)
+    plt.show()
+
+#data_plot()
