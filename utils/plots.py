@@ -4,6 +4,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
+def plot_generated_paths(num_paths, data_name, method, train_ts, train_data, xs_gen):
+    dir_name = "../result/" + data_name + "/path_fig"
+    file_name = dir_name + f"/{method}.png"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    #num_paths = xs_gen.shape[0]
+
+    plt.figure()
+    plt.plot(train_ts, train_data, ls="--") #, label='train data')
+    for i in range(num_paths):
+        plt.plot(train_ts, xs_gen[i,:,0]) #, label='learned trajectory')
+    #plt.plot(train_ts, xs_gen[-1])
+    #plt.legend()
+    plt.tight_layout()
+    plt.savefig(file_name, dpi=500)
+    #print('Saved visualization figure at {}'.format(file_name))
+
+
 def plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_data, test_data):
     dir_name = "../result/" + data_name + "/path_fig"
     file_name = dir_name + f"/{method}.png"
@@ -36,13 +54,13 @@ def plot_hist(data_name, method, xs_learn, train_data):
 
     data = xs_learn.reshape(-1)
     data = np.diff(data) # calculate return 
-    data = (data - np.mean(data)) / np.std(data)
+    #data = (data - np.mean(data)) / np.std(data)
     s = scipy.stats.skew(data)
     k = scipy.stats.kurtosis(data)
     
     data_ori = train_data.reshape(-1)
     data_ori = np.diff(data_ori)
-    data_ori = (data_ori - np.mean(data_ori)) / np.std(data_ori)
+    #data_ori = (data_ori - np.mean(data_ori)) / np.std(data_ori)
     s_ori = scipy.stats.skew(data_ori)
     k_ori = scipy.stats.kurtosis(data_ori)
 
