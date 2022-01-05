@@ -1,13 +1,20 @@
-from typing import Tuple
+#from typing import Tuple
+import itertools
+
+from fbm import FBM
 import numpy as np
+from pandas.io.stata import stata_epoch
 #from numpy.core.fromnumeric import put
 import torch
 #from torch._C import T
 import torch.nn as nn
 from torch.nn import init
+from torch.nn.modules.activation import ELU
+from torch.nn.modules.linear import Linear
 
-boole_xavier_normal = True
-init_gain = 2
+
+boole_xavier_normal = False #True
+init_gain = 1.2
 
 
 class LatentODEfunc(nn.Module):
@@ -71,8 +78,8 @@ class Decoder(nn.Module):
         return out
 
 # Hyperperameters for SDE- and fSDE-Net
-batch_dim, latent_dim, bm_dim = 20, 2, 1
-#batch_dim, latent_dim, bm_dim = 1, 1, 1
+#batch_dim, latent_dim, bm_dim = 3, 2, 1
+batch_dim, latent_dim, bm_dim = 10, 1, 1
 
 class LatentSDEfunc(nn.Module):
     noise_type = 'general'
@@ -80,86 +87,151 @@ class LatentSDEfunc(nn.Module):
 
     def __init__(self, nhidden=20, latent_dim=latent_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=init_gain):
         super().__init__()
-        self.nhidden = nhidden
-        self.latent_dim = latent_dim
-        self.bm_dim = bm_dim
-        self.batch_dim = batch_dim
+        #self.nhidden = nhidden
+        #self.latent_dim = latent_dim
+        #self.bm_dim = bm_dim
+        #self.batch_dim = batch_dim
 
         self.drift_fc1 = nn.Linear(latent_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, nhidden)
-        self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        self.drift_act = nn.ELU() #(inplace=True)
+        self.drift_fc2 = nn.Linear(nhidden, latent_dim)
+        #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
+        self.drift_act = nn.Tanh() #(inplace=True)
         
         self.diff_fc1 = nn.Linear(latent_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, nhidden)
-        self.diff_fc3 = nn.Linear(nhidden, latent_dim * bm_dim)
+        self.diff_fc2 = nn.Linear(nhidden, latent_dim)
+        #self.diff_fc3 = nn.Linear(nhidden, latent_dim) # * bm_dim)
         self.diff_act = nn.Tanh() #(inplace=True)
 
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            #nn.init.xavier_normal_(self.drift_fc3.weight, gain)
             nn.init.xavier_normal_(self.diff_fc1.weight, gain)
             nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+            #nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         
     # Drift
     def f(self, t, y):
         out = self.drift_fc1(y)
         out = self.drift_act(out)
-        #out = self.drift_fc2(out)
+        out = self.drift_fc2(out)
         #out = self.drift_elu(out)
-        out = self.drift_fc3(out)
-        out = self.drift_act(out)
+        #out = self.drift_fc3(out)
+        #out = self.drift_act(out)
         return out  # shape (batch_size, state_size)
 
     # Diffusion
     def g(self, t, y):
         out = self.diff_fc1(y)
         out = self.diff_act(out)
-        #out = self.diff_fc2(out)
+        out = self.diff_fc2(out)
         #out = self.diff_elu(out)
-        out = self.diff_fc3(out)
-        out = self.diff_act(out)
-        return out.view(self.batch_dim, self.latent_dim, self.bm_dim)
+        #out = self.diff_fc3(out)
+        #out = self.diff_act(out)
+        return out.view(batch_dim, latent_dim, bm_dim) #.view(self.batch_dim, self.latent_dim, self.bm_dim)
 
 
 class LatentFSDEfunc(nn.Module):
 
     def __init__(self, nhidden=20, latent_dim=latent_dim, gain=init_gain):
         super(LatentFSDEfunc, self).__init__()
-        self.drift_fc1 = nn.Linear(batch_dim*latent_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, batch_dim*latent_dim)
-        self.drift_fc3 = nn.Linear(nhidden, batch_dim*latent_dim)
+        self.drift_fc1 = nn.Linear(latent_dim, nhidden)
+        self.drift_fc2 = nn.Linear(nhidden, latent_dim)
+        #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
+        #self.drift_act = nn.Tanh() #(inplace=True)
         self.drift_act = nn.Tanh() #(inplace=True)
         
-        self.diff_fc1 = nn.Linear(batch_dim*latent_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, batch_dim*latent_dim)
-        self.diff_fc3 = nn.Linear(nhidden, batch_dim*latent_dim)
+        self.diff_fc1 = nn.Linear(latent_dim, nhidden)
+        self.diff_fc2 = nn.Linear(nhidden, latent_dim)
+        #self.diff_fc3 = nn.Linear(nhidden, latent_dim)
+        #self.diff_act = nn.Tanh() #(inplace=True)
         self.diff_act = nn.Tanh() #(inplace=True)
 
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            #nn.init.xavier_normal_(self.drift_fc3.weight, gain)
             nn.init.xavier_normal_(self.diff_fc1.weight, gain)
             nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+            #nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         
-
-    def drift(self, t, y):
+    def drift(self, y):
         out = self.drift_fc1(y)
         out = self.drift_act(out)
         out = self.drift_fc2(out)
         #out = self.drift_act(out)
         #out = self.drift_fc3(out)
-        return out.reshape(batch_dim, latent_dim)  
+        return out #.reshape(batch_dim, latent_dim)  
 
-    def diffusion(self, t, y):
+    def diffusion(self, y):
         out = self.diff_fc1(y)
         out = self.diff_act(out)
         out = self.diff_fc2(out)
         #out = self.diff_act(out)
         #out = self.diff_fc3(out)
-        return out.reshape(batch_dim, latent_dim)  
+        return out #.reshape(batch_dim, latent_dim)  
 
+
+
+
+"""
+# Following will not be used. 
+class FSDENet(nn.Module):
+
+    def __init__(self, nhidden=2, state_size=latent_dim, gain=init_gain):
+        super(FSDENet, self).__init__()
+        self.drift_fc1 = nn.Linear(state_size, nhidden)
+        self.drift = nn.Sequential(
+
+            nn.Linear(state_size, nhidden),
+            nn.Tanh(),
+            nn.Linear(nhidden, state_size),
+        )
+        self.diffusion = nn.Sequential(
+            nn.Linear(state_size, nhidden),
+            nn.Tanh(),
+            nn.Linear(nhidden, state_size)
+        )
+        if boole_xavier_normal:
+            for param in FSDENet.parameters():
+                nn.init.xavier_normal_(param, gain)
+                #nn.init.xavier_normal_(self.diffusion.weight, gain)
+         
+    def forward(self, hurst, x0, ts):
+        batch_size = x0.size(0)
+        state_size = x0.size(1)
+        t_start = float(ts[0])
+        t_end = float(ts[-1])
+        nsteps = 5000
+        dt = (t_end - t_start) / nsteps
+        
+        #y = torch.tile(x0, (nsteps + 1,)).reshape(batch_size, nsteps + 1, state_size).clone()
+        #y = torch.zeros(batch_size, nsteps + 1, state_size)
+        #print(y.shape)
+        y = []
+        #dB = []
+        #for i, k in itertools.product(range(batch_size), range(nsteps+1)): 
+        for i in range(batch_size):
+            y.append(x0[i])
+            B = FBM(n=nsteps, hurst=hurst, length=t_end-t_start).fbm()
+            dB = np.diff(B) if i==0 else np.append(dB, np.diff(B)) 
+            for k in range(1, nsteps+1):    
+                index = k + i * (nsteps + 1)
+                y_next = y[index-1] + self.drift(y[index-1]) * dt \
+                    + self.diffusion(y[index-1]) * dB[index-1-(k-1)]
+                y.append(y_next)
+                #y[i,k] = y[i,k-1] + dB[k-1] + self.drift(y[i,k-1]) * dt \
+                    #+ self.diffusion(y[i,k-1]) * dB[k-1] # "dB[k]=B[k+1]-B[k]"    
+        #print(torch.stack(y))
+        y = torch.stack(y, axis=0).reshape(batch_size, -1, state_size) 
+        print(y)
+ 
+        ts_panel = torch.tile(ts, (batch_size, state_size)).reshape(batch_size, state_size, -1).permute(0, 2, 1) 
+        num = (ts_panel - t_start) / (t_end -t_start) * nsteps 
+        n_floor = torch.floor(num).to(torch.int64) 
+        n_ceil = torch.ceil(num).to(torch.int64)
+        ts_floor = t_start + n_floor * dt
+        solution = y[:,n_floor[0,:,0]] + (ts_panel - ts_floor) * (y[:,n_ceil[0,:,0]] - y[:,n_floor[0,:,0]]) / dt 
+        #print(solution[:,:3])
+        return solution
+"""

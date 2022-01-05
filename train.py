@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from utils.neural_net import LatentFSDEfunc, LatentODEfunc, RecognitionRNN, Decoder
+from utils.neural_net import LatentFSDEfunc, LatentODEfunc, RecognitionRNN, Decoder #, FSDENet
 from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim
 from utils.utils import RunningAverageMeter, log_normal_pdf, normal_kl, calculate_log_likelihood
 from utils.plots import plot_generated_paths, plot_path, plot_hist
@@ -32,10 +32,10 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=5)
 args = parser.parse_args()
 
-DICT_DATANAME = ["SPX"] 
+DICT_DATANAME = ["TPX"] 
 #DICT_DATANAME = ["TPX", "SPX", "SX5E"]
-DICT_METHOD = ["fSDE"]
-#DICT_METHOD = ["ODE", "SDE", "fSDE"]
+#DICT_METHOD = ["SDE"]
+DICT_METHOD = ["SDE", "fSDE"]
 
 
 if args.ode_adjoint:
@@ -50,11 +50,10 @@ from utils.fsde_solver import fsdeint
 
 
 def train(data_name, method):
-    nhidden = 20
-    rnn_nhidden = 25
-    obs_dim = 1
-
-    noise_std = 10
+    #nhidden = 20
+    #rnn_nhidden = 25
+    #obs_dim = 1
+    #noise_std = 10
     
     device = torch.device('cuda:' + str(args.gpu)
                           if torch.cuda.is_available() else 'cpu')
@@ -62,8 +61,8 @@ def train(data_name, method):
     # generate data
     sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data(
         data_name=data_name, batch_dim=batch_dim)
-    sample_trajs = torch.from_numpy(sample_trajs).float().to(device).requires_grad_()
-    train_data = torch.from_numpy(train_data).float().to(device).requires_grad_()
+    sample_trajs = torch.from_numpy(sample_trajs).float().to(device) #.requires_grad_()
+    train_data = torch.from_numpy(train_data).float().to(device) #.requires_grad_()
     #train_data = torch.from_numpy(train_data).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device) #.requires_grad_()
     test_ts = torch.from_numpy(test_ts).float().to(device) #.requires_grad_()
@@ -71,8 +70,8 @@ def train(data_name, method):
     
     # model
     # Call instance
-    rec = RecognitionRNN(latent_dim, obs_dim, rnn_nhidden, batch_dim).to(device)
-    dec = Decoder(latent_dim, obs_dim, nhidden).to(device)
+    #rec = RecognitionRNN(latent_dim, obs_dim, rnn_nhidden, batch_dim).to(device)
+    #dec = Decoder(latent_dim, obs_dim, nhidden).to(device)
     #if method == "ODE":
     #    func_ODE = LatentODEfunc().to(device)
     #    params = (list(func_ODE.parameters()) + list(dec.parameters()) + list(rec.parameters()))
@@ -84,7 +83,7 @@ def train(data_name, method):
     #    params = (list(func_fSDE.parameters())) 
     
     
-    
+    #params = []
     if method == "ODE":
         func_ODE = LatentODEfunc().to(device)
         params = list(func_ODE.parameters()) 
@@ -93,13 +92,15 @@ def train(data_name, method):
         params = list(func_SDE.parameters()) 
     elif method == "fSDE":
         func_fSDE = LatentFSDEfunc().to(device)
+        #fsdenet = FSDENet().to(device)
         params = (list(func_fSDE.parameters())) 
+        #params = (list(fsdenet.parameters()))
 
     optimizer = optim.Adam(params, lr=args.lr)
     loss_meter = RunningAverageMeter()
     
     for itr in range(1, args.niters + 1): #tqdm(range(1, args.niters + 1)):
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
         #h = rec.initHidden().to(device)
         #for t in range(sample_trajs.size(1)):
         #    obs = sample_trajs[:, t].reshape(-1, 1)
@@ -107,7 +108,9 @@ def train(data_name, method):
         #qz0_mean, qz0_logvar = out[:, :latent_dim], out[:, latent_dim:]
         #epsilon = torch.randn(qz0_mean.size()).to(device)
         #z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean # dimension (batch_size, latent_size)
+        #print(train_data.shape)
         z0 = torch.zeros(batch_dim, latent_dim) + train_data[0, 0]
+        #print(z0.shape)
         
         if method == "ODE":
             pred_z = odeint(func_ODE, z0, train_ts).permute(1, 0, 2)
@@ -120,6 +123,7 @@ def train(data_name, method):
             # dimension of fsdeint is (batch_size, t_size, latent_size)
             #drift_fSDE = func_fSDE.drift()
             pred_z = fsdeint(func_fSDE, args.hurst, z0, train_ts) #.permute(0, 2, 1)
+            #pred_z = fsdenet(args.hurst, z0, train_ts)
             #pred_x = dec(pred_z).reshape(batch_dim, -1)
         
         # compute loss
@@ -136,7 +140,7 @@ def train(data_name, method):
         #    print('Iter: {}, loss: {:.4f}'.format(itr, -loss_meter.avg))
         
         #loss = torch.square(pred_z[0,:,0] - train_data).mean()
-        loss = - calculate_log_likelihood(1, pred_z[:,:,0], train_data[:,0])
+        loss = - calculate_log_likelihood(pred_z[:,:,0], train_data[:,0])
         #print(loss1)
         
         #loss_fn = nn.MSELoss()
@@ -182,13 +186,8 @@ def train(data_name, method):
             #xs_learn = dec(zs_learn[:,0,:])
             #xs_pred = dec(zs_pred[:,0,:])
         elif method == "fSDE":
-            #xs_gen = fsdeint(func_fSDE, hurst=args.hurst, y0=z0, ts=train_ts)
             xs_gen = fsdeint(func_fSDE, args.hurst, x0, train_ts)
-            #for i in range(args.num_paths):
-            #    x_gen = fsdeint(func_fSDE, hurst=args.hurst, y0=x0, ts=train_ts)
-            #    xs_gen.append(x_gen)
-        #xs_gen = torch.stack(xs_gen)[:,0]
-        #print(xs_gen.shape)
+            #xs_gen = fsdenet(args.hurst, x0, train_ts)
 
         plot_generated_paths(min([args.num_paths, batch_dim]), data_name, method, train_ts, train_data, xs_gen)
         x_gen_np = xs_gen[0,:,0].to(device).numpy()

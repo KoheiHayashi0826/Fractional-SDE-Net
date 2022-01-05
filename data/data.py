@@ -32,7 +32,8 @@ def get_stock_data(data_name="TPX", batch_dim=10,
     
     data = data.loc[train_start:test_end]
     data = np.log(data)
-    data = (data - data.values.mean()) / data.values.std()
+    data_np = data.values
+    data = (data - data_np.mean()) / data_np.std()
 
     train_data = data.loc[train_start:train_end]
     test_data = data.loc[test_start:test_end]

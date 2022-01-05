@@ -53,14 +53,16 @@ def save_csv(data_name, method, ts, data_ori, data):
     #print('Saved generated path at {}'.format(file_name))
 
 
-def calculate_log_likelihood(num_partition, sample_paths, real_path):
-    batch_size = sample_paths.size(0)
-    real_paths = torch.tile(real_path, (batch_size,)).reshape(batch_size, -1)
-    real_paths_lower = torch.floor(num_partition*real_paths) / num_partition
-    real_paths_upper = torch.ceil(num_partition*real_paths)/ num_partition
-    L_sign = torch.sign((sample_paths - real_paths_lower) * (sample_paths - real_paths_upper))
-    L = torch.sum((1 - L_sign) / 2, 0) / batch_size # Likelihood vector
+def calculate_log_likelihood(sample_paths, real_path):
+    #num_partition = 4
+    #batch_size = sample_paths.size(0)
+    #real_paths = torch.tile(real_path, (batch_size,)).reshape(batch_size, -1)
+    #real_paths_lower = torch.floor(num_partition*real_paths) / num_partition
+    #real_paths_upper = torch.ceil(num_partition*real_paths)/ num_partition
+    #L_sign = torch.sign((sample_paths - real_paths_lower) * (sample_paths - real_paths_upper))
+    #L = torch.sum((1 - L_sign) / 2, 0) / batch_size # Likelihood vector
     #return torch.sum(L) #.prod(L) #.log()
+
     mean = torch.mean(torch.diff(sample_paths, dim=1), 0) 
     var = torch.var(torch.diff(sample_paths, dim=1), 0)
     log_var = torch.log(var)
