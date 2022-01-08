@@ -15,6 +15,9 @@ from torch.nn.modules.linear import Linear
 
 boole_xavier_normal = False #True
 init_gain = 1.2
+batch_dim, state_dim, bm_dim = 10, 1, 1
+nhidden, layer_num = 20, 10
+latent_dim = 1
 
 
 class LatentODEfunc(nn.Module):
@@ -39,6 +42,28 @@ class LatentODEfunc(nn.Module):
         out = self.elu(out)
         out = self.fc3(out)
         return out
+
+
+class GeneratorRNN(nn.Module):
+    """
+      h: hidden-layer variable
+      x: observed variable
+    """
+    def __init__(self, obs_dim=state_dim, nhidden=nhidden):
+        super(GeneratorRNN, self).__init__()
+        self.i2h = nn.Linear(obs_dim + nhidden, nhidden)
+        self.h2o = nn.Linear(nhidden, obs_dim)
+        self.h2h_out = nn.Linear(nhidden, obs_dim)
+
+    def forward(self, x, h):
+        combined = torch.cat((x, h), dim=1)
+        h = torch.tanh(self.i2h(combined))
+        h_out = self.h2h_out(h)
+        x_out = self.h2o(h)
+        return x_out, h_out # both has state_dim
+
+    #def initHidden(self):
+    #    return torch.zeros(self.nbatch, self.nhidden)
 
 
 class RecognitionRNN(nn.Module):
@@ -79,26 +104,25 @@ class Decoder(nn.Module):
 
 # Hyperperameters for SDE- and fSDE-Net
 #batch_dim, latent_dim, bm_dim = 3, 2, 1
-batch_dim, latent_dim, bm_dim = 10, 1, 1
 
 class LatentSDEfunc(nn.Module):
     noise_type = 'general'
     sde_type = 'ito'
 
-    def __init__(self, nhidden=20, latent_dim=latent_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=init_gain):
+    def __init__(self, nhidden=20, state_dim=state_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=init_gain):
         super().__init__()
         #self.nhidden = nhidden
         #self.latent_dim = latent_dim
         #self.bm_dim = bm_dim
         #self.batch_dim = batch_dim
 
-        self.drift_fc1 = nn.Linear(latent_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, latent_dim)
+        self.drift_fc1 = nn.Linear(state_dim, nhidden)
+        self.drift_fc2 = nn.Linear(nhidden, state_dim)
         #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
         self.drift_act = nn.Tanh() #(inplace=True)
         
-        self.diff_fc1 = nn.Linear(latent_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, latent_dim)
+        self.diff_fc1 = nn.Linear(state_dim, nhidden)
+        self.diff_fc2 = nn.Linear(nhidden, state_dim)
         #self.diff_fc3 = nn.Linear(nhidden, latent_dim) # * bm_dim)
         self.diff_act = nn.Tanh() #(inplace=True)
 
@@ -128,21 +152,21 @@ class LatentSDEfunc(nn.Module):
         #out = self.diff_elu(out)
         #out = self.diff_fc3(out)
         #out = self.diff_act(out)
-        return out.view(batch_dim, latent_dim, bm_dim) #.view(self.batch_dim, self.latent_dim, self.bm_dim)
+        return out.view(batch_dim, state_dim, bm_dim) #.view(self.batch_dim, self.latent_dim, self.bm_dim)
 
 
 class LatentFSDEfunc(nn.Module):
 
-    def __init__(self, nhidden=20, latent_dim=latent_dim, gain=init_gain):
+    def __init__(self, nhidden=20, state_dim=state_dim, gain=init_gain):
         super(LatentFSDEfunc, self).__init__()
-        self.drift_fc1 = nn.Linear(latent_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, latent_dim)
+        self.drift_fc1 = nn.Linear(state_dim, nhidden)
+        self.drift_fc2 = nn.Linear(nhidden, state_dim)
         #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
         #self.drift_act = nn.Tanh() #(inplace=True)
         self.drift_act = nn.Tanh() #(inplace=True)
         
-        self.diff_fc1 = nn.Linear(latent_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, latent_dim)
+        self.diff_fc1 = nn.Linear(state_dim, nhidden)
+        self.diff_fc2 = nn.Linear(nhidden, state_dim)
         #self.diff_fc3 = nn.Linear(nhidden, latent_dim)
         #self.diff_act = nn.Tanh() #(inplace=True)
         self.diff_act = nn.Tanh() #(inplace=True)

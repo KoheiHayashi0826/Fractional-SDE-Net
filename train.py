@@ -3,6 +3,7 @@ import argparse
 import logging
 import time
 import numpy as np
+from numpy.core.arrayprint import printoptions
 import numpy.random as npr
 import matplotlib
 from tqdm import tqdm
@@ -15,11 +16,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from utils.neural_net import LatentFSDEfunc, LatentODEfunc, RecognitionRNN, Decoder #, FSDENet
-from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim
+from utils.neural_net import LatentFSDEfunc, LatentODEfunc, GeneratorRNN
+from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim, nhidden, layer_num
 from utils.utils import RunningAverageMeter, log_normal_pdf, normal_kl, calculate_log_likelihood
 from utils.plots import plot_generated_paths, plot_path, plot_hist
-from utils.utils import save_csv
+from utils.utils import save_csv, tensor_to_numpy
 from data.data import get_stock_data
 
 parser = argparse.ArgumentParser()
@@ -32,16 +33,18 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=5)
 args = parser.parse_args()
 
-DICT_DATANAME = ["TPX"] 
-#DICT_DATANAME = ["TPX", "SPX", "SX5E"]
-#DICT_METHOD = ["SDE"]
-DICT_METHOD = ["SDE", "fSDE"]
+DICT_DATANAME = ["SPX"] 
+DICT_DATANAME = ["TPX", "SPX", "SX5E"]
+#DICT_METHOD = ['RNN']
+DICT_METHOD = ['RNN', 'SDE', 'fSDE']
 
+ts_points = ['2010/1/4', '2020/12/31', '2021/11/11'] # train_start, train_end=test_start, test_end 
 
 if args.ode_adjoint:
     from torchdiffeq import odeint_adjoint as odeint
 else:
     from torchdiffeq import odeint
+
 if args.sde_adjoint:
     from torchsde import sdeint_adjoint as sdeint
 else:
@@ -59,15 +62,17 @@ def train(data_name, method):
                           if torch.cuda.is_available() else 'cpu')
 
     # generate data
-    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data(
-        data_name=data_name, batch_dim=batch_dim)
-    sample_trajs = torch.from_numpy(sample_trajs).float().to(device) #.requires_grad_()
-    train_data = torch.from_numpy(train_data).float().to(device) #.requires_grad_()
-    #train_data = torch.from_numpy(train_data).float().to(device)
-    train_ts = torch.from_numpy(train_ts).float().to(device) #.requires_grad_()
-    test_ts = torch.from_numpy(test_ts).float().to(device) #.requires_grad_()
-    #print(train_data[0, 0])
+    train_data, test_data, train_ts_str, test_ts_str, train_ts, test_ts = get_stock_data(ts_points, data_name, batch_dim)
+    #sample_trajs = torch.from_numpy(sample_trajs).float().to(device) 
+    train_data = torch.from_numpy(train_data).float().to(device) 
+    test_data = torch.from_numpy(test_data).float().to(device)
+    train_ts = torch.from_numpy(train_ts).float().to(device)
+    test_ts = torch.from_numpy(test_ts).float().to(device) 
     
+    ts_total = torch.cat((train_ts.reshape(-1), test_ts[1:]))
+    data_total = torch.cat((train_data.reshape(-1), test_data.reshape(-1)[1:]))
+    ts_total_str = train_ts_str + test_ts_str[1:]
+
     # model
     # Call instance
     #rec = RecognitionRNN(latent_dim, obs_dim, rnn_nhidden, batch_dim).to(device)
@@ -84,9 +89,9 @@ def train(data_name, method):
     
     
     #params = []
-    if method == "ODE":
-        func_ODE = LatentODEfunc().to(device)
-        params = list(func_ODE.parameters()) 
+    if method == "RNN":
+        rnn = GeneratorRNN().to(device)
+        params = list(rnn.parameters()) 
     elif method == "SDE":
         func_SDE = LatentSDEfunc().to(device)
         params = list(func_SDE.parameters()) 
@@ -100,7 +105,7 @@ def train(data_name, method):
     loss_meter = RunningAverageMeter()
     
     for itr in range(1, args.niters + 1): #tqdm(range(1, args.niters + 1)):
-        #optimizer.zero_grad()
+        optimizer.zero_grad()
         #h = rec.initHidden().to(device)
         #for t in range(sample_trajs.size(1)):
         #    obs = sample_trajs[:, t].reshape(-1, 1)
@@ -112,9 +117,16 @@ def train(data_name, method):
         z0 = torch.zeros(batch_dim, latent_dim) + train_data[0, 0]
         #print(z0.shape)
         
-        if method == "ODE":
-            pred_z = odeint(func_ODE, z0, train_ts).permute(1, 0, 2)
-            #pred_x = dec(pred_z).reshape(batch_dim, -1)
+        if method == "RNN":
+            h = torch.randn(train_data.size(0), batch_dim, nhidden)
+            z = z0
+            pred_return = torch.zeros(batch_dim, latent_dim)
+            for k in range(train_data.size(0)-1):        
+                z, h_out = rnn(z, h[k])
+                pred_return = torch.cat((pred_return, h_out), dim=1)
+            pred_return = torch.cumsum(pred_return.unsqueeze(-1), dim=1)
+            pred_z = torch.zeros(batch_dim, train_data.size(0), latent_dim) + train_data[0, 0] - pred_return
+            #pred_z = torch.randn(batch_dim, train_data.size(0), latent_dim)
         elif method == "SDE":
             # dimension of sdeint is (t_size, batch_size, latent_size)
             pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
@@ -156,7 +168,7 @@ def train(data_name, method):
         loss.backward()
         optimizer.step()
         #if itr%5==0:
-        print("Iter: {}, Total Likelihood: {:.4f}, Regularization: {:.4f}".format(itr, -loss, reg))        
+        print("Iter: {}, Log Likelihood: {:.4f}, Regularization: {:.4f}".format(itr, -loss, reg))        
     print(f'Training complete after {itr} iters.\n')
     
     
@@ -171,28 +183,37 @@ def train(data_name, method):
         #epsilon = torch.randn(qz0_mean.size()).to(device)
         #z0 = epsilon * torch.exp(.5 * qz0_logvar) + qz0_mean
         x0 = torch.zeros(batch_dim, latent_dim) + train_data[0, 0]
-        xs_gen = []
+        #xs_gen = []
+
         
-        if method == "ODE":
-            z0 = z0[0]
-            zs_learn = odeint(func_ODE, z0, train_ts)
-            #zs_pred = odeint(func_ODE, zs_learn[-1,:], test_ts)
-            #xs_learn = dec(zs_learn)
-            #xs_pred = dec(zs_pred)
-        elif method == "SDE":
-            xs_gen = sdeint(func_SDE, x0, train_ts).permute(1, 0, 2)
+        if method == 'RNN':
+            h = torch.randn(data_total.size(0), batch_dim, nhidden)
+            x = x0
+            return_pred = torch.zeros(batch_dim, latent_dim)
+            for k in range(data_total.size(0)-1):        
+                x, h_out = rnn(x, h[k])
+                return_pred = torch.cat((return_pred, h_out), dim=1)
+            return_pred = torch.cumsum(return_pred.unsqueeze(-1), dim=1)
+            xs_gen = torch.zeros(batch_dim, data_total.size(0), latent_dim) + train_data[0, 0] - return_pred
+            #xs_gen = torch.cumsum(xs_gen, dim=1) 
+            #xs_gen = sdeint(func_SDE, x0, ts_total).permute(1, 0, 2)
+        elif method == 'SDE':
+            xs_gen = sdeint(func_SDE, x0, ts_total).permute(1, 0, 2)
             #zs_learn = sdeint(func_SDE, z0, train_ts)
             #zs_pred = sdeint(func_SDE, zs_learn[-1,:,:], test_ts)
             #xs_learn = dec(zs_learn[:,0,:])
             #xs_pred = dec(zs_pred[:,0,:])
-        elif method == "fSDE":
-            xs_gen = fsdeint(func_fSDE, args.hurst, x0, train_ts)
+        elif method == 'fSDE':
+            xs_gen = fsdeint(func_fSDE, args.hurst, x0, ts_total)
             #xs_gen = fsdenet(args.hurst, x0, train_ts)
 
-        plot_generated_paths(min([args.num_paths, batch_dim]), data_name, method, train_ts, train_data, xs_gen)
-        x_gen_np = xs_gen[0,:,0].to(device).numpy()
-        save_csv(data_name, method, train_ts_pd, train_data.reshape(-1), x_gen_np)
-        plot_hist(data_name, method, x_gen_np, train_data)
+        plot_generated_paths(min([args.num_paths, batch_dim]), data_name, method, ts_total, data_total, xs_gen)
+        xs_gen_np = tensor_to_numpy(xs_gen[:,:,0]) #.to(device).detach().numpy().copy()
+        #print(xs_gen_np.shape)
+        #print(train_data)
+        #x_gen_np = xs_gen[0,:,0].to(device).detach().numpy().copy()
+        save_csv(data_name, method, ts_total_str, data_total.reshape(-1), xs_gen_np)
+        plot_hist(data_name, method, xs_gen_np[0], train_data)
 
             #zs_pred = fsdeint(func_fSDE, hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) 
             #xs_learn = dec(zs_learn[0,:,:])

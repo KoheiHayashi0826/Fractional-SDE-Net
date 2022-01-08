@@ -13,15 +13,13 @@ import matplotlib.pyplot as plt
 
 
 
-def get_stock_data(data_name="TPX", batch_dim=10,
-                      start=0.,
-                      stop=1, 
-                      noise_std=10):
+def get_stock_data(ts_poits, data_name, batch_dim): #, start=0., stop=1): 
 
-    train_start = "2010/1/4"
-    train_end = "2020/12/31"
-    test_start = train_end
-    test_end = "2021/11/11"
+    train_start = ts_poits[0] # "2010/1/4"
+    train_end = test_start = ts_poits[1] # "2020/12/31"
+    test_end = ts_poits[2] # "2021/11/11"
+    
+    start, stop = 0., 1.
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     data = pd.read_csv("data.csv", index_col="Date").iloc[::-1].dropna()
@@ -38,10 +36,11 @@ def get_stock_data(data_name="TPX", batch_dim=10,
     train_data = data.loc[train_start:train_end]
     test_data = data.loc[test_start:test_end]
 
-    train_ts_pd = list(train_data.index)
-    test_ts_pd = list(test_data.index)
-    train_ts = pd.to_datetime(train_ts_pd)
-    test_ts = pd.to_datetime(test_ts_pd)
+    train_ts_str = list(train_data.index)
+    test_ts_str = list(test_data.index)
+
+    train_ts = pd.to_datetime(train_ts_str)
+    test_ts = pd.to_datetime(test_ts_str)
     train_ts = train_ts.map(pd.Timestamp.timestamp).values
     test_ts = test_ts.map(pd.Timestamp.timestamp).values
     
@@ -58,16 +57,16 @@ def get_stock_data(data_name="TPX", batch_dim=10,
     for _ in range(batch_dim):
         #samp_traj = orig_traj[t0_idx:t0_idx + nsample, :].copy()
         sample_traj = train_data.copy()
-        sample_traj += npr.randn(*sample_traj.shape) * noise_std
+        sample_traj += npr.randn(*sample_traj.shape) * 1
         sample_trajs.append(sample_traj)
 
     # batching for sample trajectories is good for RNN; batching for original
     # trajectories only for ease of indexing
     sample_trajs = np.stack(sample_trajs, axis=0).reshape(batch_dim, -1)
 
-    return sample_trajs, train_data.values, test_data.values, train_ts_pd, test_ts_pd, train_ts, test_ts
+    return train_data.values, test_data.values, train_ts_str, test_ts_str, train_ts, test_ts
 
-sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
+#sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
 #print(train_ts.size, test_ts.size)
 #print(len(train_ts_pd), len(test_ts_pd))
 
