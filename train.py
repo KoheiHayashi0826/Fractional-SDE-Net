@@ -19,7 +19,7 @@ import torch.nn.functional as F
 from utils.neural_net import LatentFSDEfunc, LatentODEfunc, GeneratorRNN
 from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim, nhidden, layer_num
 from utils.utils import RunningAverageMeter, log_normal_pdf, normal_kl, calculate_log_likelihood
-from utils.plots import plot_generated_paths, plot_path, plot_hist
+from utils.plots import plot_generated_paths, plot_original_path, plot_hist
 from utils.utils import save_csv, tensor_to_numpy
 from data.data import get_stock_data
 
@@ -33,7 +33,7 @@ parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=5)
 args = parser.parse_args()
 
-DICT_DATANAME = ["SPX"] 
+#DICT_DATANAME = ["SPX"] 
 DICT_DATANAME = ["TPX", "SPX", "SX5E"]
 #DICT_METHOD = ['RNN']
 DICT_METHOD = ['RNN', 'SDE', 'fSDE']
@@ -207,11 +207,9 @@ def train(data_name, method):
             xs_gen = fsdeint(func_fSDE, args.hurst, x0, ts_total)
             #xs_gen = fsdenet(args.hurst, x0, train_ts)
 
+        plot_original_path(data_name, ts_total, data_total)
         plot_generated_paths(min([args.num_paths, batch_dim]), data_name, method, ts_total, data_total, xs_gen)
         xs_gen_np = tensor_to_numpy(xs_gen[:,:,0]) #.to(device).detach().numpy().copy()
-        #print(xs_gen_np.shape)
-        #print(train_data)
-        #x_gen_np = xs_gen[0,:,0].to(device).detach().numpy().copy()
         save_csv(data_name, method, ts_total_str, data_total.reshape(-1), xs_gen_np)
         plot_hist(data_name, method, xs_gen_np[0], train_data)
 

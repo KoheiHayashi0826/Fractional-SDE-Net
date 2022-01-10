@@ -117,14 +117,14 @@ class LatentSDEfunc(nn.Module):
         #self.batch_dim = batch_dim
 
         self.drift_fc1 = nn.Linear(state_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, state_dim)
-        #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
-        self.drift_act = nn.Tanh() #(inplace=True)
+        self.drift_fc2 = nn.Linear(nhidden, nhidden)
+        self.drift_fc3 = nn.Linear(nhidden, state_dim)
         
         self.diff_fc1 = nn.Linear(state_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, state_dim)
-        #self.diff_fc3 = nn.Linear(nhidden, latent_dim) # * bm_dim)
-        self.diff_act = nn.Tanh() #(inplace=True)
+        self.diff_fc2 = nn.Linear(nhidden, nhidden)
+        self.diff_fc3 = nn.Linear(nhidden, state_dim) # * bm_dim)
+        
+        self.act = nn.Tanh() #(inplace=True)
 
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
@@ -137,21 +137,21 @@ class LatentSDEfunc(nn.Module):
     # Drift
     def f(self, t, y):
         out = self.drift_fc1(y)
-        out = self.drift_act(out)
+        out = self.act(out)
         out = self.drift_fc2(out)
-        #out = self.drift_elu(out)
-        #out = self.drift_fc3(out)
-        #out = self.drift_act(out)
+        out = self.act(out)
+        out = self.drift_fc3(out)
+        #out = self.act(out)
         return out  # shape (batch_size, state_size)
 
     # Diffusion
     def g(self, t, y):
         out = self.diff_fc1(y)
-        out = self.diff_act(out)
+        out = self.act(out)
         out = self.diff_fc2(out)
-        #out = self.diff_elu(out)
-        #out = self.diff_fc3(out)
-        #out = self.diff_act(out)
+        out = self.act(out)
+        out = self.diff_fc3(out)
+        #out = self.act(out)
         return out.view(batch_dim, state_dim, bm_dim) #.view(self.batch_dim, self.latent_dim, self.bm_dim)
 
 
@@ -160,16 +160,17 @@ class LatentFSDEfunc(nn.Module):
     def __init__(self, nhidden=20, state_dim=state_dim, gain=init_gain):
         super(LatentFSDEfunc, self).__init__()
         self.drift_fc1 = nn.Linear(state_dim, nhidden)
-        self.drift_fc2 = nn.Linear(nhidden, state_dim)
-        #self.drift_fc3 = nn.Linear(nhidden, latent_dim)
+        self.drift_fc2 = nn.Linear(nhidden, nhidden)
+        self.drift_fc3 = nn.Linear(nhidden, state_dim)
         #self.drift_act = nn.Tanh() #(inplace=True)
-        self.drift_act = nn.Tanh() #(inplace=True)
+        #self.act = nn.Tanh() #(inplace=True)
         
         self.diff_fc1 = nn.Linear(state_dim, nhidden)
-        self.diff_fc2 = nn.Linear(nhidden, state_dim)
-        #self.diff_fc3 = nn.Linear(nhidden, latent_dim)
+        self.diff_fc2 = nn.Linear(nhidden, nhidden)
+        self.diff_fc3 = nn.Linear(nhidden, state_dim)
         #self.diff_act = nn.Tanh() #(inplace=True)
-        self.diff_act = nn.Tanh() #(inplace=True)
+        
+        self.act = nn.Tanh() #(inplace=True)
 
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
@@ -181,18 +182,18 @@ class LatentFSDEfunc(nn.Module):
         
     def drift(self, y):
         out = self.drift_fc1(y)
-        out = self.drift_act(out)
+        out = self.act(out)
         out = self.drift_fc2(out)
-        #out = self.drift_act(out)
-        #out = self.drift_fc3(out)
+        out = self.act(out)
+        out = self.drift_fc3(out)
         return out #.reshape(batch_dim, latent_dim)  
 
     def diffusion(self, y):
         out = self.diff_fc1(y)
-        out = self.diff_act(out)
+        out = self.act(out)
         out = self.diff_fc2(out)
-        #out = self.diff_act(out)
-        #out = self.diff_fc3(out)
+        out = self.act(out)
+        out = self.diff_fc3(out)
         return out #.reshape(batch_dim, latent_dim)  
 
 

@@ -7,14 +7,18 @@ import numpy as np
 #from numpy import linalg
 from numpy.core.arrayprint import printoptions
 import pandas as pd
-from pandas.plotting import autocorrelation_plot
+from pandas.core.base import PandasObject
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
 
-from train import DICT_DATANAME, DICT_METHOD, train, ts_points
+from train import DICT_DATANAME, DICT_METHOD, ts_points
+from utils.plots import plot_generated_paths, plot_hist, plot_correlogram
 
 DICT_EVALUATION = ['Distribution', 'ACF', 'R2 Score']
+eval_obj = 'price' 
+eval_obj = 'return'
+#eval_obj = 'RV'
 
 def read_data(ts_points, data_name, method):
     train_start = ts_points[0]
@@ -24,45 +28,29 @@ def read_data(ts_points, data_name, method):
     os.chdir(os.path.dirname(os.path.abspath(__file__)))    
     path = f"./result/{data_name}/path_csv/{method}.csv"
     data_csv = pd.read_csv(path, index_col="Date")
-    data_gen = data_csv[["0"]].diff().dropna() #.head(head_end)
-    data_gen = data_gen.values.reshape(-1)
-    train_data_gen = data_csv[["0"]].loc[train_start:train_end].diff().dropna() #.head(head_end)
-    train_data_gen = train_data_gen.values.reshape(-1)
-    test_data_gen = data_csv[["0"]].loc[test_start:test_end].diff().dropna() #.head(head_end)
-    test_data_gen = test_data_gen.values.reshape(-1)
-    #print(train_data_gen, test_data_gen)
-    #data_gen = data_csv[["0"]].diff().dropna() #.head(head_end)
-    #data_gen = data_gen.values.reshape(-1)
-    #data = np.abs(data)
-    data_hist = data_csv[[data_name]].diff().dropna() #.head(head_end)
-    data_hist = data_hist.values.reshape(-1)
-    train_data_hist = data_csv[[data_name]].loc[train_start:train_end].diff().dropna() #.head(head_end)
-    train_data_hist = train_data_hist.values.reshape(-1)
-    test_data_hist = data_csv[[data_name]].loc[test_start:test_end].diff().dropna() #.head(head_end)
-    test_data_hist = test_data_hist.values.reshape(-1)
-    #data_hist = np.abs(data_hist)
+    data_gen = pd_transform(data_csv[["0"]], eval_obj) 
+    train_data_gen = pd_transform(data_csv[["0"]].loc[train_start:train_end], eval_obj)
+    test_data_gen = pd_transform(data_csv[["0"]].loc[test_start:test_end], eval_obj) 
+    data_hist = pd_transform(data_csv[[data_name]], eval_obj)
+    train_data_hist = pd_transform(data_csv[[data_name]].loc[train_start:train_end], eval_obj)
+    test_data_hist = pd_transform(data_csv[[data_name]].loc[test_start:test_end], eval_obj)
+
     return data_hist, data_gen, train_data_hist, train_data_gen, test_data_hist, test_data_gen
 
 
-def acf_plot(data_name, method, data_hist, data_gen):
-    
-    dir_name = "./result/" + data_name + "/correlogram"
-    file_name = dir_name + f"/{method}.png"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-
-    plt.figure()
-    autocorrelation_plot(pd.Series(data_gen), label="Generated")
-    autocorrelation_plot(pd.Series(data_hist), label="Historical", alpha=0.7) # alpha=0: totally transparent
-    #plt.xscale("log")
-    #plt.yscale("log")
-    plt.ylim(-0.25, 0.25)
-    plt.legend()
-    plt.savefig(file_name, dpi=500)
+def pd_transform(data: PandasObject, type: str) -> np.ndarray:
+    data = data.values.reshape(-1)
+    if type == 'price': pass
+    elif type == 'return': data = np.diff(data) 
+    elif type == 'RV': data = np.square(np.diff(data))
+    return data
 
     
 def acf_score(data_hist, data_gen):
-    lag_horizon = 250
+    data_hist = np.abs(data_hist)
+    data_gen = np.abs(data_gen)
+
+    lag_horizon = 500
     acf_hist = sm.tsa.stattools.acf(data_hist, nlags=lag_horizon, fft=False)
     acf_gen = sm.tsa.stattools.acf(data_gen, nlags=lag_horizon, fft=False)
     score = np.square(acf_hist - acf_gen).sum()**0.5 # l^2-norm 
@@ -100,7 +88,7 @@ def save_summary():
             os.makedirs(dir_name)
         for i, key_method in enumerate(DICT_METHOD):
             data_hist, data_gen, train_hist, train_gen, test_hist, test_gen = read_data(ts_points, key_data, key_method)
-            acf_plot(key_data, key_method, data_hist, data_gen)
+            plot_correlogram(key_data, key_method, data_hist, data_gen)
             summary[i, 0] = marginal_distribution_score(data_hist, data_gen)
             summary[i, 1] = acf_score(data_hist, data_gen)
             summary[i, 2] = prediction_score(train_hist, train_gen, test_hist, test_gen)
