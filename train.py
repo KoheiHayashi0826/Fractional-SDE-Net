@@ -28,7 +28,7 @@ parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=1) # originally 5000
 parser.add_argument('--lr', type=float, default=0.01)
-parser.add_argument('--hurst', type=float, default=0.6)
+parser.add_argument('--hurst', type=float, default=0.55)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=5)
 args = parser.parse_args()

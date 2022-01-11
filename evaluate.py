@@ -9,14 +9,15 @@ from numpy.core.arrayprint import printoptions
 import pandas as pd
 from pandas.core.base import PandasObject
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
 
 from train import DICT_DATANAME, DICT_METHOD, ts_points
-from utils.plots import plot_generated_paths, plot_hist, plot_correlogram
+from utils.plots import plot_generated_paths, plot_hist, plot_correlogram, plot_scatter
 
-DICT_EVALUATION = ['Distribution', 'ACF', 'R2 Score']
-eval_obj = 'price' 
+DICT_EVALUATION = ['Distribution', 'ACF', 'R2 Score', 'Hurst']
+#eval_obj = 'price' 
 eval_obj = 'return'
 #eval_obj = 'RV'
 
@@ -78,8 +79,24 @@ def prediction_score(train_hist, train_gen, test_hist, test_gen):
     return score 
 
 
+def estimate_hurst(data, name, method):
+    mean = np.mean(data)
+    cumsum = np.cumsum(data - mean)
+
+    range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
+    std = np.cumsum(np.square(data -mean)) / np.arange(1, len(data) + 1)
+    Q = range / std 
+    T = 2500
+    y = np.log(Q[-T:-1]).reshape(-1, 1)
+    x = np.log(np.arange(len(data)- T + 2, len(data) + 1)).reshape(-1, 1)
+    plot_scatter(name, method, x, y)
+    reg = LinearRegression().fit(x, y)
+    hurst = reg.coef_[0, 0]
+    return hurst
+
+
 def save_summary():
-    summary = np.full((len(DICT_METHOD), len(DICT_EVALUATION)), "?", dtype=object)
+    summary = np.full((len(DICT_METHOD) + 1, len(DICT_EVALUATION)), "-", dtype=object)
 
     for key_data in DICT_DATANAME:
         dir_name = "./result/" + key_data
@@ -92,7 +109,9 @@ def save_summary():
             summary[i, 0] = marginal_distribution_score(data_hist, data_gen)
             summary[i, 1] = acf_score(data_hist, data_gen)
             summary[i, 2] = prediction_score(train_hist, train_gen, test_hist, test_gen)
-        summary_pd = pd.DataFrame(data=summary, columns=DICT_EVALUATION, index=DICT_METHOD)
+            summary[i, 3] = estimate_hurst(train_gen, key_data, key_method)
+        summary[3, 3] = estimate_hurst(train_hist, key_data, 'Original')
+        summary_pd = pd.DataFrame(data=summary, columns=DICT_EVALUATION, index=DICT_METHOD + ['Original'])
         summary_pd.to_csv(file_name)
         print(f"Data: {key_data}")
         print(summary_pd)

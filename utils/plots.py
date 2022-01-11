@@ -20,6 +20,7 @@ def plot_generated_paths(num_paths, data_name, method, train_ts, train_data, xs_
     #plt.legend()
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
+    plt.close()
     #print('Saved visualization figure at {}'.format(file_name))
 
 
@@ -33,6 +34,7 @@ def plot_original_path(data_name, ts, data):
     plt.plot(ts, data) #, ls="--", label='train data')
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
+    plt.close()
     #print('Saved visualization figure at {}'.format(file_name))
 
 
@@ -75,7 +77,9 @@ def plot_hist(data_name, method, xs_learn, train_data):
     
         fig1.legend(fontsize=20)
         fig2.legend(fontsize=20)
+        plt.tight_layout()
         plt.savefig(file_name, dpi=500)
+        plt.close()
         #print('Saved visualization figure at {}'.format(file_name))
     else:
         plt.figure()
@@ -84,7 +88,7 @@ def plot_hist(data_name, method, xs_learn, train_data):
         plt.legend(fontsize=14)
         plt.tight_layout()
         plt.savefig(file_name, dpi=500)
-        
+        plt.close()
             
 def plot_correlogram(data_name, method, data_hist, data_gen):
     
@@ -103,5 +107,19 @@ def plot_correlogram(data_name, method, data_hist, data_gen):
     plt.ylim(-0.25, 0.25)
     plt.legend(fontsize=14)
     plt.savefig(file_name, dpi=500)
+    plt.close()
 
 
+           
+def plot_scatter(data_name, method, x, y):
+    
+    dir_name = "./result/" + data_name + "/RS_statistics"
+    file_name = dir_name + f"/{data_name}_RS_{method}.png"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    plt.figure()
+    plt.scatter(x, y)
+    plt.tight_layout()
+    plt.savefig(file_name, dpi=500)
+    plt.close()
