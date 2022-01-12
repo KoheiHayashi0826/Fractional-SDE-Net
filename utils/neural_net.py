@@ -13,16 +13,17 @@ from torch.nn.modules.activation import ELU
 from torch.nn.modules.linear import Linear
 
 
-boole_xavier_normal = False #True
-init_gain = 1.2
+boole_xavier_normal = True
+init_gain_sde = 1 #2
+init_gain_fsde = 1 #2.5
 batch_dim, state_dim, bm_dim = 10, 1, 1
-nhidden, layer_num = 20, 10
+nhidden_rnn, nhidden_sde, nhidden_fsde = 40, 20, 20
 latent_dim = 1
 
 
 class LatentODEfunc(nn.Module):
 
-    def __init__(self, latent_dim=4, nhidden=20, gain=init_gain):
+    def __init__(self, latent_dim=4, nhidden=20, gain=1):
         super(LatentODEfunc, self).__init__()
         self.elu = nn.ELU(inplace=True)
         self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
@@ -49,7 +50,7 @@ class GeneratorRNN(nn.Module):
       h: hidden-layer variable
       x: observed variable
     """
-    def __init__(self, obs_dim=state_dim, nhidden=nhidden):
+    def __init__(self, obs_dim=state_dim, nhidden=nhidden_rnn):
         super(GeneratorRNN, self).__init__()
         self.i2h = nn.Linear(obs_dim + nhidden, nhidden)
         self.h2o = nn.Linear(nhidden, obs_dim)
@@ -109,7 +110,7 @@ class LatentSDEfunc(nn.Module):
     noise_type = 'general'
     sde_type = 'ito'
 
-    def __init__(self, nhidden=20, state_dim=state_dim, bm_dim=bm_dim, batch_dim=batch_dim, gain=init_gain):
+    def __init__(self, nhidden=nhidden_sde, state_dim=state_dim, gain=init_gain_sde):
         super().__init__()
         #self.nhidden = nhidden
         #self.latent_dim = latent_dim
@@ -129,10 +130,10 @@ class LatentSDEfunc(nn.Module):
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-            #nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
             nn.init.xavier_normal_(self.diff_fc1.weight, gain)
             nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-            #nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         
     # Drift
     def f(self, t, y):
@@ -157,7 +158,7 @@ class LatentSDEfunc(nn.Module):
 
 class LatentFSDEfunc(nn.Module):
 
-    def __init__(self, nhidden=20, state_dim=state_dim, gain=init_gain):
+    def __init__(self, nhidden=nhidden_fsde, state_dim=state_dim, gain=init_gain_fsde):
         super(LatentFSDEfunc, self).__init__()
         self.drift_fc1 = nn.Linear(state_dim, nhidden)
         self.drift_fc2 = nn.Linear(nhidden, nhidden)
@@ -175,10 +176,10 @@ class LatentFSDEfunc(nn.Module):
         if boole_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
-            #nn.init.xavier_normal_(self.drift_fc3.weight, gain)
+            nn.init.xavier_normal_(self.drift_fc3.weight, gain)
             nn.init.xavier_normal_(self.diff_fc1.weight, gain)
             nn.init.xavier_normal_(self.diff_fc2.weight, gain)
-            #nn.init.xavier_normal_(self.diff_fc3.weight, gain)
+            nn.init.xavier_normal_(self.diff_fc3.weight, gain)
         
     def drift(self, y):
         out = self.drift_fc1(y)

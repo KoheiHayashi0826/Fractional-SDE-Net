@@ -17,7 +17,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from utils.neural_net import LatentFSDEfunc, LatentODEfunc, GeneratorRNN
-from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim, nhidden, layer_num
+from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim, nhidden_rnn
 from utils.utils import RunningAverageMeter, log_normal_pdf, normal_kl, calculate_log_likelihood
 from utils.plots import plot_generated_paths, plot_original_path, plot_hist
 from utils.utils import save_csv, tensor_to_numpy
@@ -28,17 +28,21 @@ parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=1) # originally 5000
 parser.add_argument('--lr', type=float, default=0.01)
-parser.add_argument('--hurst', type=float, default=0.55)
+parser.add_argument('--reg_lambda', type=float, default=0)
+parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=5)
 args = parser.parse_args()
 
-#DICT_DATANAME = ["SPX"] 
-DICT_DATANAME = ["TPX", "SPX", "SX5E"]
+DICT_DATANAME = ["SPX"] 
+#DICT_DATANAME = ["SPX", "TPX", "SX5E"]
 #DICT_METHOD = ['RNN']
 DICT_METHOD = ['RNN', 'SDE', 'fSDE']
 
-ts_points = ['2010/1/4', '2020/12/31', '2021/11/11'] # train_start, train_end=test_start, test_end 
+#ts_points = ['2010/1/4', '2020/12/31', '2021/11/11'] # train_start, train_end=test_start, test_end 
+#ts_points = ['1986/4/10', '2015/12/31', '2021/11/11'] 
+#ts_points = ['2000/1/3', '2020/12/31', '2021/11/11'] 
+ts_points = ['2000/1/3', '2020/12/31', '2021/11/11'] 
 
 if args.ode_adjoint:
     from torchdiffeq import odeint_adjoint as odeint
@@ -118,7 +122,7 @@ def train(data_name, method):
         #print(z0.shape)
         
         if method == "RNN":
-            h = torch.randn(train_data.size(0), batch_dim, nhidden)
+            h = torch.randn(train_data.size(0), batch_dim, nhidden_rnn)
             z = z0
             pred_return = torch.zeros(batch_dim, latent_dim)
             for k in range(train_data.size(0)-1):        
@@ -159,7 +163,7 @@ def train(data_name, method):
         #loss = loss_fn(pred_z[0,:,0], train_data[:,0]) #.reshape(-1, latent_dim), train_data)
         
         #print(pred_z[0,:,0], train_data[:,0])
-        reg_lambda = 0.
+        reg_lambda = args.reg_lambda
         reg = torch.tensor(0.) 
         for param in params:
             reg += torch.norm(param, 1)
@@ -187,7 +191,7 @@ def train(data_name, method):
 
         
         if method == 'RNN':
-            h = torch.randn(data_total.size(0), batch_dim, nhidden)
+            h = torch.randn(data_total.size(0), batch_dim, nhidden_rnn)
             x = x0
             return_pred = torch.zeros(batch_dim, latent_dim)
             for k in range(data_total.size(0)-1):        

@@ -1,5 +1,6 @@
 """Read csv data of generated paths and evaluate ACF score. 
  Export summary as csv file"""
+from itertools import product
 import os 
 
 import math
@@ -8,6 +9,7 @@ import numpy as np
 from numpy.core.arrayprint import printoptions
 import pandas as pd
 from pandas.core.base import PandasObject
+pd.options.display.float_format = '{:.3f}'.format
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
@@ -16,7 +18,7 @@ import statsmodels.api as sm
 from train import DICT_DATANAME, DICT_METHOD, ts_points
 from utils.plots import plot_generated_paths, plot_hist, plot_correlogram, plot_scatter
 
-DICT_EVALUATION = ['Distribution', 'ACF', 'R2 Score', 'Hurst']
+DICT_EVALUATION = ['Hurst', 'Distribution', 'ACF_annealed', 'ACF_quenched', 'R2 Score']
 #eval_obj = 'price' 
 eval_obj = 'return'
 #eval_obj = 'RV'
@@ -29,88 +31,138 @@ def read_data(ts_points, data_name, method):
     os.chdir(os.path.dirname(os.path.abspath(__file__)))    
     path = f"./result/{data_name}/path_csv/{method}.csv"
     data_csv = pd.read_csv(path, index_col="Date")
-    data_gen = pd_transform(data_csv[["0"]], eval_obj) 
-    train_data_gen = pd_transform(data_csv[["0"]].loc[train_start:train_end], eval_obj)
-    test_data_gen = pd_transform(data_csv[["0"]].loc[test_start:test_end], eval_obj) 
-    data_hist = pd_transform(data_csv[[data_name]], eval_obj)
-    train_data_hist = pd_transform(data_csv[[data_name]].loc[train_start:train_end], eval_obj)
-    test_data_hist = pd_transform(data_csv[[data_name]].loc[test_start:test_end], eval_obj)
+    
+    paths_gen = stock_transform(data_csv.values[:,2:], eval_obj)
+    paths_gen_train = stock_transform(data_csv.loc[train_start:train_end].values[:,2:], eval_obj)
+    paths_gen_test = stock_transform(data_csv.loc[test_start:test_end].values[:,2:], eval_obj) 
 
-    return data_hist, data_gen, train_data_hist, train_data_gen, test_data_hist, test_data_gen
+    path_hist = stock_transform(data_csv[[data_name]].values, eval_obj).reshape(-1)
+    path_hist_train = stock_transform(data_csv[[data_name]].loc[train_start:train_end].values, eval_obj).reshape(-1)
+    path_hist_test = stock_transform(data_csv[[data_name]].loc[test_start:test_end].values, eval_obj).reshape(-1)
+
+    path_gen = stock_transform(data_csv[["0"]].values, eval_obj).reshape(-1)
+    path_gen_train = stock_transform(data_csv[["0"]].loc[train_start:train_end].values, eval_obj).reshape(-1)
+    path_gen_test = stock_transform(data_csv[["0"]].loc[test_start:test_end].values, eval_obj).reshape(-1)
+    
+    return paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test
 
 
-def pd_transform(data: PandasObject, type: str) -> np.ndarray:
-    data = data.values.reshape(-1)
+def stock_transform(data: np.ndarray, type: str) -> np.ndarray:
     if type == 'price': pass
-    elif type == 'return': data = np.diff(data) 
-    elif type == 'RV': data = np.square(np.diff(data))
+    elif type == 'return': data = np.diff(data, axis=0) 
+    elif type == 'RV': data = np.square(np.diff(data, axis=0))
     return data
 
     
-def acf_score(data_hist, data_gen):
-    data_hist = np.abs(data_hist)
-    data_gen = np.abs(data_gen)
+def acf_score(path_hist, paths_gen, weight):
+    path_hist = np.abs(path_hist)
+    paths_gen = np.abs(paths_gen)
+    lag_horizon = path_hist.size - 100
+    scores = []
+    acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False)
+    for i in range(paths_gen.shape[1]):
+        acf_gen = sm.tsa.stattools.acf(paths_gen[:,i], nlags=lag_horizon, fft=False)
+        score = np.square(acf_hist - acf_gen).sum()**0.5 # l^2-norm 
+        scores.append(score)
+        
+    return (np.mean(scores), np.std(scores))
 
-    lag_horizon = 500
-    acf_hist = sm.tsa.stattools.acf(data_hist, nlags=lag_horizon, fft=False)
-    acf_gen = sm.tsa.stattools.acf(data_gen, nlags=lag_horizon, fft=False)
-    score = np.square(acf_hist - acf_gen).sum()**0.5 # l^2-norm 
-    return score    
 
+def acf_score_annealed(path_hist, paths_gen, weight):
+    batch_size = paths_gen.shape[1]
+    path_hist = np.abs(path_hist)
+    paths_gen = np.abs(paths_gen)
+    lag_horizon = path_hist.size - 100
+    acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False)
+    acfs_gen = []
+    for i in range(paths_gen.shape[1]):
+        acf_gen = sm.tsa.stattools.acf(paths_gen[:,i], nlags=lag_horizon, fft=False)
+        acfs_gen.append(acf_gen)
+    acfs_gen = np.stack(acfs_gen, axis=0)
+    acf_gen_annealed = np.mean(acfs_gen.reshape(-1, batch_size), axis=1)
+    score = np.square(acf_hist - acf_gen_annealed).sum()**0.5 # l^2-norm 
+    #score = 0
+    return f'&{score:.3f}' 
 
-def marginal_distribution_score(data_hist, data_gen):
+def marginal_distribution_score(path_hist, paths_gen):
     """ Use Scott's choice to determine width: 3.5\sigma^2 n^(-1/3) = 0.01 """
     width = 0.01
-    min = np.min([np.min(data_hist), np.min(data_gen)])
-    max = np.max([np.max(data_hist), np.max(data_gen)])
-    bins = np.arange(np.floor(min/width).astype(int) , np.ceil(max/width).astype(int)+1) * width # np.arange([1,3]) = [1,2]
-    emp_hist, bins = np.histogram(data_hist, bins, density=True)
-    emp_gen, bins = np.histogram(data_gen, bins, density=True)
-    pdf_diff = np.abs(emp_hist - emp_gen) 
-    score = np.sum(pdf_diff) * width
-    return score    
+    scores = []
+    for i in range(paths_gen.shape[1]):
+        min = np.min([np.min(path_hist), np.min(paths_gen[:,i])])
+        max = np.max([np.max(path_hist), np.max(paths_gen[:,i])])
+        bins = np.arange(np.floor(min/width).astype(int) , np.ceil(max/width).astype(int)+1) * width # np.arange([1,3]) = [1,2]
+        emp_hist, bins = np.histogram(path_hist, bins, density=True)
+        emp_gen, bins = np.histogram(paths_gen[:,i], bins, density=True)
+        pdf_diff = np.abs(emp_hist - emp_gen) 
+        score = np.sum(pdf_diff) * width
+        scores.append(score)
+    return scores
 
 
-def prediction_score(train_hist, train_gen, test_hist, test_gen):
-    #print(test_gen.shape)
-    #y_true, y_pred = test_hist, test_gen
-    score = r2_score(test_hist, test_gen)
-    #score = 0
-    return score 
+def prediction_score(path_hist, paths_gen):
+    scores = []
+    for i in range(paths_gen.shape[1]):
+        score = r2_score(path_hist, paths_gen[:,i])
+        scores.append(score)
+    return (np.mean(scores), np.std(scores)) 
 
 
 def estimate_hurst(data, name, method):
-    mean = np.mean(data)
-    cumsum = np.cumsum(data - mean)
+    scores = []
 
-    range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
-    std = np.cumsum(np.square(data -mean)) / np.arange(1, len(data) + 1)
-    Q = range / std 
-    T = 2500
-    y = np.log(Q[-T:-1]).reshape(-1, 1)
-    x = np.log(np.arange(len(data)- T + 2, len(data) + 1)).reshape(-1, 1)
-    plot_scatter(name, method, x, y)
-    reg = LinearRegression().fit(x, y)
-    hurst = reg.coef_[0, 0]
-    return hurst
+    if data.shape[0] == data.size:
+        mean = np.mean(data)
+        cumsum = np.cumsum(data - mean)
+        sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
+        std = np.cumsum(np.square(data -mean)) / np.arange(1, len(data) + 1)
+        Q = sample_range / std 
+        T = len(data) - 100  # max is (len-1)
+        y = np.log(Q[-T:-1]).reshape(-1, 1)
+        x = np.log(np.arange(len(data)- T + 2, len(data) + 1)).reshape(-1, 1)
+        plot_scatter(name, method, x, y)
+        reg = LinearRegression().fit(x, y)
+        hurst = reg.coef_[0, 0]
+        scores = f'& {hurst:.3f}'
+    else:
+        for i in range(data.shape[1]):
+            mean = np.mean(data[:,i])
+            cumsum = np.cumsum(data[:,i] - mean)
+            sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
+            std = np.cumsum(np.square(data[:,i] - mean)) / np.arange(1, len(data[:,i]) + 1)
+            Q = sample_range / std 
+            T = len(data) - 100  # max is (len-1)
+            y = np.log(Q[-T:-1]).reshape(-1, 1)
+            x = np.log(np.arange(len(data[:,i])- T + 2, len(data[:,i]) + 1)).reshape(-1, 1)
+            reg = LinearRegression().fit(x, y)
+            hurst = reg.coef_[0, 0]
+            scores.append(hurst)
+        plot_scatter(name, method, x, y)
+    return scores
+
+
+def print_error(list):
+    out = f'& {list[0]:.3f} $\pm$ {list[1]:.3f}' 
+    return out
 
 
 def save_summary():
-    summary = np.full((len(DICT_METHOD) + 1, len(DICT_EVALUATION)), "-", dtype=object)
-
+    summary = np.full((len(DICT_METHOD) + 1, len(DICT_EVALUATION)), "& -", dtype=object)
+  
     for key_data in DICT_DATANAME:
         dir_name = "./result/" + key_data
         file_name = dir_name + "/summary.csv"
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
         for i, key_method in enumerate(DICT_METHOD):
-            data_hist, data_gen, train_hist, train_gen, test_hist, test_gen = read_data(ts_points, key_data, key_method)
-            plot_correlogram(key_data, key_method, data_hist, data_gen)
-            summary[i, 0] = marginal_distribution_score(data_hist, data_gen)
-            summary[i, 1] = acf_score(data_hist, data_gen)
-            summary[i, 2] = prediction_score(train_hist, train_gen, test_hist, test_gen)
-            summary[i, 3] = estimate_hurst(train_gen, key_data, key_method)
-        summary[3, 3] = estimate_hurst(train_hist, key_data, 'Original')
+            paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test = read_data(ts_points, key_data, key_method)
+            plot_correlogram(key_data, key_method, path_hist, paths_gen[:,0])
+            summary[i, 0] = print_error(estimate_hurst(paths_gen, key_data, key_method))
+            summary[i, 1] = print_error(marginal_distribution_score(path_hist, paths_gen))
+            summary[i, 3] = print_error(acf_score(path_hist, paths_gen, weight=False))
+            summary[i, 2] = acf_score_annealed(path_hist, paths_gen, weight=True)
+            summary[i, 4] = print_error(prediction_score(path_hist_test, paths_gen_test))
+        summary[3, 0] = estimate_hurst(path_hist, key_data, 'original')
         summary_pd = pd.DataFrame(data=summary, columns=DICT_EVALUATION, index=DICT_METHOD + ['Original'])
         summary_pd.to_csv(file_name)
         print(f"Data: {key_data}")
