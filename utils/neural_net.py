@@ -13,10 +13,10 @@ from torch.nn.modules.activation import ELU
 from torch.nn.modules.linear import Linear
 
 
-boole_xavier_normal = True
+boole_xavier_normal = False
 init_gain_sde = 1 #2
 init_gain_fsde = 1 #2.5
-batch_dim, state_dim, bm_dim = 10, 1, 1
+batch_dim, state_dim, bm_dim = 100, 1, 1
 nhidden_rnn, nhidden_sde, nhidden_fsde = 40, 20, 20
 latent_dim = 1
 

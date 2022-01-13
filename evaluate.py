@@ -57,7 +57,7 @@ def stock_transform(data: np.ndarray, type: str) -> np.ndarray:
 def acf_score(path_hist, paths_gen, weight):
     path_hist = np.abs(path_hist)
     paths_gen = np.abs(paths_gen)
-    lag_horizon = path_hist.size - 100
+    lag_horizon = path_hist.size - 500
     scores = []
     acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False)
     for i in range(paths_gen.shape[1]):
@@ -72,7 +72,7 @@ def acf_score_annealed(path_hist, paths_gen, weight):
     batch_size = paths_gen.shape[1]
     path_hist = np.abs(path_hist)
     paths_gen = np.abs(paths_gen)
-    lag_horizon = path_hist.size - 100
+    lag_horizon = path_hist.size - 500
     acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False)
     acfs_gen = []
     for i in range(paths_gen.shape[1]):
@@ -97,7 +97,7 @@ def marginal_distribution_score(path_hist, paths_gen):
         pdf_diff = np.abs(emp_hist - emp_gen) 
         score = np.sum(pdf_diff) * width
         scores.append(score)
-    return scores
+    return (np.mean(scores), np.std(scores)) 
 
 
 def prediction_score(path_hist, paths_gen):
@@ -109,9 +109,8 @@ def prediction_score(path_hist, paths_gen):
 
 
 def estimate_hurst(data, name, method):
-    scores = []
 
-    if data.shape[0] == data.size:
+    if data.shape[0] == data.size: # when batch_size=1
         mean = np.mean(data)
         cumsum = np.cumsum(data - mean)
         sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
@@ -123,8 +122,9 @@ def estimate_hurst(data, name, method):
         plot_scatter(name, method, x, y)
         reg = LinearRegression().fit(x, y)
         hurst = reg.coef_[0, 0]
-        scores = f'& {hurst:.3f}'
+        out = f'& {hurst:.3f}'
     else:
+        scores = []
         for i in range(data.shape[1]):
             mean = np.mean(data[:,i])
             cumsum = np.cumsum(data[:,i] - mean)
@@ -137,9 +137,9 @@ def estimate_hurst(data, name, method):
             reg = LinearRegression().fit(x, y)
             hurst = reg.coef_[0, 0]
             scores.append(hurst)
+        out = (np.mean(scores), np.std(scores)) 
         plot_scatter(name, method, x, y)
-    return scores
-
+    return out
 
 def print_error(list):
     out = f'& {list[0]:.3f} $\pm$ {list[1]:.3f}' 

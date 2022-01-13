@@ -13,7 +13,7 @@ def plot_generated_paths(num_paths, data_name, method, train_ts, train_data, xs_
         os.makedirs(dir_name)
 
     plt.figure()
-    plt.plot(train_ts, train_data, ls="--") #, label='train data')
+    plt.plot(train_ts, train_data) #, ls="--") #, label='train data')
     for i in range(num_paths):
         plt.plot(train_ts, xs_gen[i,:,0]) #, label='learned trajectory')
     #plt.plot(train_ts, xs_gen[-1])

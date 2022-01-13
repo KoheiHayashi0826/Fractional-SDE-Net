@@ -57,9 +57,10 @@ def fsdeint(func_fSDE, hurst, y0, ts):
     state_size = y0.size(1)
     t_start = float(ts[0])
     t_end = float(ts[-1])
-    nsteps = 5000
+    nsteps = 5000 # 5000
     dt = (t_end - t_start) / nsteps
 
+    """
     y = []
     for i in range(batch_size):
         y.append(y0[i])
@@ -71,18 +72,43 @@ def fsdeint(func_fSDE, hurst, y0, ts):
                 + func_fSDE.diffusion(y[index-1]) * dB[index-1-i]
             y.append(y_next)
     y = torch.stack(y, axis=0).reshape(batch_size, nsteps + 1, state_size) 
-    #print(y[:,:5])
-    #print(Bs.reshape(batch_size, -1)[:,:20])
-    
+
     ts_panel = torch.tile(ts, (batch_size, state_size)).reshape(batch_size, state_size, -1).permute(0, 2, 1) 
     num = (ts_panel - t_start) / (t_end -t_start) * nsteps 
     n_floor = torch.floor(num).to(torch.int64) 
     n_ceil = torch.ceil(num).to(torch.int64)
     ts_floor = t_start + n_floor * dt
     solution = y[:,n_floor[0,:,0]] + (ts_panel - ts_floor) * (y[:,n_ceil[0,:,0]] - y[:,n_floor[0,:,0]]) / dt 
-    #print(solution)
     return solution
+    """
 
+    for i in range(batch_size):
+        B = FBM(n=nsteps, hurst=hurst, length=t_end-t_start).fbm()
+        dB = np.diff(B) if i==0 else np.append(dB, np.diff(B))
+    dB = dB.reshape(batch_size, nsteps)
+    dB = torch.from_numpy(dB).float() #.requires_grad_(False)
+    dB = torch.tile(dB, (state_size,)).reshape(batch_size, state_size, -1).permute(0, 2, 1).to(device)
+    #print(dB[0, :20, 0] * 1e-4)
+    #y = torch.tile(y0, (nsteps + 1,)).reshape(batch_size, nsteps + 1, state_size).to(device)
+    y = []
+    y.append(y0)
+    for k in range(1, nsteps + 1):
+        y_next = y[k-1] + func_fSDE.drift(y[k-1]) * dt \
+            + func_fSDE.diffusion(y[k-1]) * dB[:,k-1] # "dB[k]=B[k+1]-B[k]"    
+        y.append(y_next) 
+    y = torch.stack(y, axis=1)
+    #print(y.shape)
+    #y = y.reshape(batch_size, nsteps + 1, state_size)
+    
+    ts_panel = torch.tile(ts, (batch_size, state_size)).reshape(batch_size, state_size, -1).permute(0, 2, 1) 
+    num = (ts_panel - t_start) / (t_end -t_start) * nsteps 
+    n_floor = torch.floor(num).to(torch.int64) 
+    n_ceil = torch.ceil(num).to(torch.int64)
+    ts_floor = t_start + n_floor * dt
+    #solution = torch.zeros(state_size, ts.size(0), 1) #.requires_grad_()
+    #solution = y_copy[:,n_floor[0,:,0]] + (ts_panel - ts_floor) * (y_copy[:,n_ceil[0,:,0]] - y_copy[:,n_floor[0,:,0]]) / dt 
+    solution = y[:,n_floor[0,:,0]] + (ts_panel - ts_floor) * (y[:,n_ceil[0,:,0]] - y[:,n_floor[0,:,0]]) / dt 
+    return solution
 
     """
     for i in range(batch_size):

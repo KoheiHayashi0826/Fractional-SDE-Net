@@ -15,10 +15,13 @@ def tensor_to_numpy(x):
     """
     return x.detach().cpu().numpy()
 
-def log_normal_pdf(x, mean, logvar):
+def log_normal_pdf(x, mean, var):
+    x_norm = (x - mean)**2 / var
     const = torch.from_numpy(np.array([2. * np.pi])).float().to(x.device)
     const = torch.log(const)
-    return -.5 * (const + logvar + (x - mean) ** 2. / torch.exp(logvar))
+    logvar = torch.log(var)
+    pdf = -.5 * (const + logvar + x_norm)
+    return pdf
 
 
 def normal_kl(mu1, lv1, mu2, lv2):
@@ -72,10 +75,9 @@ def calculate_log_likelihood(sample_paths, real_path):
     #L = torch.sum((1 - L_sign) / 2, 0) / batch_size # Likelihood vector
     #return torch.sum(L) #.prod(L) #.log()
 
-    mean = torch.mean(torch.diff(sample_paths, dim=1), 0) 
-    var = torch.var(torch.diff(sample_paths, dim=1), 0)
-    log_var = torch.log(var)
+    mean = torch.mean(torch.diff(sample_paths, dim=1), dim=0) 
+    var = torch.var(torch.diff(sample_paths, dim=1), dim=0)
     x = torch.diff(real_path)
-    log_pdf = log_normal_pdf(x, mean, log_var)
+    log_pdf = log_normal_pdf(x, mean, var)
     return log_pdf.mean()
     

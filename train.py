@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=1) # originally 5000
-parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--lr', type=float, default=0.02)
 parser.add_argument('--reg_lambda', type=float, default=0)
 parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)
@@ -36,7 +36,7 @@ args = parser.parse_args()
 
 DICT_DATANAME = ["SPX"] 
 #DICT_DATANAME = ["SPX", "TPX", "SX5E"]
-#DICT_METHOD = ['RNN']
+DICT_METHOD = ['fSDE']
 DICT_METHOD = ['RNN', 'SDE', 'fSDE']
 
 #ts_points = ['2010/1/4', '2020/12/31', '2021/11/11'] # train_start, train_end=test_start, test_end 
@@ -130,17 +130,12 @@ def train(data_name, method):
                 pred_return = torch.cat((pred_return, h_out), dim=1)
             pred_return = torch.cumsum(pred_return.unsqueeze(-1), dim=1)
             pred_z = torch.zeros(batch_dim, train_data.size(0), latent_dim) + train_data[0, 0] - pred_return
-            #pred_z = torch.randn(batch_dim, train_data.size(0), latent_dim)
         elif method == "SDE":
             # dimension of sdeint is (t_size, batch_size, latent_size)
             pred_z = sdeint(func_SDE, z0, train_ts).permute(1, 0, 2)
-            #pred_x = dec(pred_z).reshape(batch_dim, -1)
         elif method == "fSDE":
             # dimension of fsdeint is (batch_size, t_size, latent_size)
-            #drift_fSDE = func_fSDE.drift()
             pred_z = fsdeint(func_fSDE, args.hurst, z0, train_ts) #.permute(0, 2, 1)
-            #pred_z = fsdenet(args.hurst, z0, train_ts)
-            #pred_x = dec(pred_z).reshape(batch_dim, -1)
         
         # compute loss
         #noise_std_ = torch.zeros(pred_x.size()).to(device) + noise_std
@@ -154,23 +149,19 @@ def train(data_name, method):
         #loss_meter.update(loss.item())
         #if itr%5==0:
         #    print('Iter: {}, loss: {:.4f}'.format(itr, -loss_meter.avg))
-        
-        #loss = torch.square(pred_z[0,:,0] - train_data).mean()
-        loss = - calculate_log_likelihood(pred_z[:,:,0], train_data[:,0])
-        #print(loss1)
-        
-        #loss_fn = nn.MSELoss()
-        #loss = loss_fn(pred_z[0,:,0], train_data[:,0]) #.reshape(-1, latent_dim), train_data)
-        
-        #print(pred_z[0,:,0], train_data[:,0])
-        reg_lambda = args.reg_lambda
-        reg = torch.tensor(0.) 
-        for param in params:
-            reg += torch.norm(param, 1)
-        loss += reg_lambda * reg
 
-        loss.backward()
-        optimizer.step()
+        with torch.autograd.set_detect_anomaly(True):
+            loss = - calculate_log_likelihood(pred_z[:,:,0], train_data[:,0])
+        
+            reg_lambda = args.reg_lambda
+            reg = torch.tensor(0.) 
+            for param in params:
+                reg += torch.norm(param, 1)
+            loss += reg_lambda * reg
+
+            loss.backward()
+            optimizer.step()
+        
         #if itr%5==0:
         print("Iter: {}, Log Likelihood: {:.4f}, Regularization: {:.4f}".format(itr, -loss, reg))        
     print(f'Training complete after {itr} iters.\n')
