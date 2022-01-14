@@ -13,9 +13,9 @@ from torch.nn.modules.activation import ELU
 from torch.nn.modules.linear import Linear
 
 
-boole_xavier_normal = False
+bool_xavier_normal = True
 init_gain_sde = 1 #2
-init_gain_fsde = 1 #2.5
+init_gain_fsde = 1.5 #2.5
 batch_dim, state_dim, bm_dim = 100, 1, 1
 nhidden_rnn, nhidden_sde, nhidden_fsde = 40, 20, 20
 latent_dim = 1
@@ -29,7 +29,7 @@ class LatentODEfunc(nn.Module):
         self.fc1 = nn.Linear(latent_dim, nhidden) # fully connected
         self.fc2 = nn.Linear(nhidden, nhidden)
         self.fc3 = nn.Linear(nhidden, latent_dim)
-        if boole_xavier_normal:
+        if bool_xavier_normal:
             nn.init.xavier_normal_(self.fc1.weight, gain)
             nn.init.xavier_normal_(self.fc2.weight, gain)
             nn.init.xavier_normal_(self.fc3.weight, gain)
@@ -127,7 +127,7 @@ class LatentSDEfunc(nn.Module):
         
         self.act = nn.Tanh() #(inplace=True)
 
-        if boole_xavier_normal:
+        if bool_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
             nn.init.xavier_normal_(self.drift_fc3.weight, gain)
@@ -173,7 +173,7 @@ class LatentFSDEfunc(nn.Module):
         
         self.act = nn.Tanh() #(inplace=True)
 
-        if boole_xavier_normal:
+        if bool_xavier_normal:
             nn.init.xavier_normal_(self.drift_fc1.weight, gain)
             nn.init.xavier_normal_(self.drift_fc2.weight, gain)
             nn.init.xavier_normal_(self.drift_fc3.weight, gain)

@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=1) # originally 5000
-parser.add_argument('--lr', type=float, default=0.02)
+parser.add_argument('--lr', type=float, default=0.04)
 parser.add_argument('--reg_lambda', type=float, default=0)
 parser.add_argument('--hurst', type=float, default=0.6)
 parser.add_argument('--gpu', type=int, default=0)

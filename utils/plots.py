@@ -13,11 +13,19 @@ def plot_generated_paths(num_paths, data_name, method, train_ts, train_data, xs_
         os.makedirs(dir_name)
 
     plt.figure()
+    plt.grid()
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)  
+    plt.gca().yaxis.set_ticks_position('left')
+    plt.gca().xaxis.set_ticks_position('bottom')
+    
     plt.plot(train_ts, train_data) #, ls="--") #, label='train data')
     for i in range(num_paths):
         plt.plot(train_ts, xs_gen[i,:,0]) #, label='learned trajectory')
     #plt.plot(train_ts, xs_gen[-1])
-    #plt.legend()
+    plt.xlim(0, 1)
+    plt.xlabel('Time', fontsize=14)
+    plt.ylabel('Log path', fontsize=14)
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
     plt.close()
@@ -31,7 +39,16 @@ def plot_original_path(data_name, ts, data):
         os.makedirs(dir_name)
 
     plt.figure()
+    plt.grid()
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)  
+    plt.gca().yaxis.set_ticks_position('left')
+    plt.gca().xaxis.set_ticks_position('bottom')
+
     plt.plot(ts, data) #, ls="--", label='train data')
+    plt.xlim(ts[0], ts[-1])
+    plt.xlabel('Time', fontsize=14)
+    plt.ylabel('Log path', fontsize=14)
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
     plt.close()
@@ -59,37 +76,55 @@ def plot_hist(data_name, method, xs_learn, train_data):
     s_ori = scipy.stats.skew(data_ori)
     k_ori = scipy.stats.kurtosis(data_ori)
 
-    nbins = 100
+    nbins = 200
 
     if log_plot:
         fig = plt.figure(figsize=(16, 8))
         fig1 = fig.add_subplot(1, 2, 1)
         fig2 = fig.add_subplot(1, 2, 2)
 
-        fig1.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True)
         fig1.hist(data_ori, alpha=0.7, bins=nbins, label='Historical', density=True) 
-        fig1.set_title("pdf", fontsize=14) #(f"pdf, skew={s:.02f}, kurtosis={k:.02f}") 
+        fig1.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True)
+        fig1.set_title("pdf", fontsize=16) #(f"pdf, skew={s:.02f}, kurtosis={k:.02f}") 
         fig1.set_aspect('auto', 'box')
 
-        fig2.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True, log=True)
         fig2.hist(data_ori, alpha=0.7, bins=nbins, label='Historical', density=True, log=True)  
-        fig2.set_title("log-pdf", fontsize=14) #(f"log-pdf, skew={s_ori:.02f}, kurtosis={k_ori:.02f}") 
+        fig2.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True, log=True)
+        fig2.set_title("log-pdf", fontsize=16) #(f"log-pdf, skew={s_ori:.02f}, kurtosis={k_ori:.02f}") 
     
-        fig1.legend(fontsize=20)
-        fig2.legend(fontsize=20)
+        fig1.legend(fontsize=14)
+        fig2.legend(fontsize=14)
+
+        plt.figure()
+        plt.grid()
+        plt.gca().spines['right'].set_visible(False)
+        plt.gca().spines['top'].set_visible(False)  
+        plt.gca().yaxis.set_ticks_position('left')
+        plt.gca().xaxis.set_ticks_position('bottom')
+
         plt.tight_layout()
         plt.savefig(file_name, dpi=500)
         plt.close()
-        #print('Saved visualization figure at {}'.format(file_name))
     else:
         plt.figure()
-        plt.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True)
+        plt.grid()
+        plt.gca().spines['right'].set_visible(False)
+        plt.gca().spines['top'].set_visible(False)  
+        plt.gca().yaxis.set_ticks_position('left')
+        plt.gca().xaxis.set_ticks_position('bottom')
+
         plt.hist(data_ori, alpha=0.7, bins=nbins, label='Historical', density=True) 
+        plt.hist(data, alpha=0.7, bins=nbins, label='Generated', density=True)
+        plt.xlim(-0.12, 0.12)
         plt.legend(fontsize=14)
+        plt.title(f'{method}', fontsize=14)
+        plt.xlabel('Log-return', fontsize=14)
+        plt.ylabel('Density', fontsize=14)
         plt.tight_layout()
         plt.savefig(file_name, dpi=500)
         plt.close()
-            
+
+
 def plot_correlogram(data_name, method, data_hist, data_gen):
     
     dir_name = "./result/" + data_name + "/correlogram"
@@ -100,12 +135,20 @@ def plot_correlogram(data_name, method, data_hist, data_gen):
     data_hist, data_gen = abs(data_hist), abs(data_gen)
     
     plt.figure()
-    autocorrelation_plot(pd.Series(data_gen), label="Generated", alpha=0.7)
+    plt.grid()
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)  
+    plt.gca().yaxis.set_ticks_position('left')
+    plt.gca().xaxis.set_ticks_position('bottom')
+
     autocorrelation_plot(pd.Series(data_hist), label="Historical", alpha=0.7) # alpha=0: totally transparent
-    #plt.xlabel(fontsize=14)
-    #plt.yscale("log")
-    plt.ylim(-0.25, 0.25)
+    autocorrelation_plot(pd.Series(data_gen), label="Generated", alpha=0.7)
+    plt.ylim(-0.2, 0.2)
+    plt.xlabel('Lag', fontsize=14)
+    plt.ylabel('Autocorrelation', fontsize=14)
     plt.legend(fontsize=14)
+    plt.title(f'{method}', fontsize=14)
+    plt.tight_layout()
     plt.savefig(file_name, dpi=500)
     plt.close()
 
@@ -119,7 +162,16 @@ def plot_scatter(data_name, method, x, y):
         os.makedirs(dir_name)
     
     plt.figure()
+    plt.grid()
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)  
+    plt.gca().yaxis.set_ticks_position('left')
+    plt.gca().xaxis.set_ticks_position('bottom')
+
     plt.scatter(x, y)
+    plt.title(f'{method}', fontsize=14)
+    plt.xlabel('logT', fontsize=14)
+    plt.ylabel('log(R/S)', fontsize=14)
     plt.tight_layout()
     plt.savefig(file_name, dpi=500)
     plt.close()
