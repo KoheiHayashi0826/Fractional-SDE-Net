@@ -63,16 +63,13 @@ def plot_hist(data_name, method, xs_learn, train_data):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     
-
     data = xs_learn.reshape(-1)
-    data = np.diff(data) # calculate return 
-    #data = (data - np.mean(data)) / np.std(data)
+    data = np.diff(data) 
     s = scipy.stats.skew(data)
     k = scipy.stats.kurtosis(data)
     
     data_ori = train_data.reshape(-1)
     data_ori = np.diff(data_ori)
-    #data_ori = (data_ori - np.mean(data_ori)) / np.std(data_ori)
     s_ori = scipy.stats.skew(data_ori)
     k_ori = scipy.stats.kurtosis(data_ori)
 

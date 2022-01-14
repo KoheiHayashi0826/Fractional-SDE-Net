@@ -1,3 +1,4 @@
+from distutils.util import split_quoted
 import os
 
 #from posixpath import curdir
@@ -13,7 +14,7 @@ import matplotlib.pyplot as plt
 
 
 
-def get_stock_data(ts_poits, data_name, batch_dim): #, start=0., stop=1): 
+def get_stock_data(ts_poits, data_name): #, start=0., stop=1): 
 
     train_start = ts_poits[0] # "2010/1/4"
     train_end = test_start = ts_poits[1] # "2020/12/31"
@@ -50,48 +51,42 @@ def get_stock_data(ts_poits, data_name, batch_dim): #, start=0., stop=1):
     test_ts = train_ts[-1] + (test_ts - test_ts[0]) / (test_ts[-1] - test_ts[0]) * test_ratio * (stop - start) 
  
 
-    sample_traj = train_data.values
-
+    #sample_traj = train_data.values
     # sample starting timestamps
-    sample_trajs = []
-    for _ in range(batch_dim):
-        #samp_traj = orig_traj[t0_idx:t0_idx + nsample, :].copy()
-        sample_traj = train_data.copy()
-        sample_traj += npr.randn(*sample_traj.shape) * 1
-        sample_trajs.append(sample_traj)
-
+    #sample_trajs = []
+    #for _ in range(batch_dim):
+    #    #samp_traj = orig_traj[t0_idx:t0_idx + nsample, :].copy()
+    #    sample_traj = train_data.copy()
+    #    sample_traj += npr.randn(*sample_traj.shape) * 1
+    #    sample_trajs.append(sample_traj)
     # batching for sample trajectories is good for RNN; batching for original
     # trajectories only for ease of indexing
-    sample_trajs = np.stack(sample_trajs, axis=0).reshape(batch_dim, -1)
+    #sample_trajs = np.stack(sample_trajs, axis=0).reshape(batch_dim, -1)
 
     return train_data.values, test_data.values, train_ts_str, test_ts_str, train_ts, test_ts
 
-#sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
-#print(train_ts.size, test_ts.size)
-#print(len(train_ts_pd), len(test_ts_pd))
 
-def data_plot():
-    data_pd = pd.read_csv("data.csv", index_col="Date")
-    data_pd = data_pd[["TPX"]]
-    data_pd = data_pd.loc["2021/11/11":"2018/1/2"]
-    data_pd = data_pd.iloc[::-1]
-    #data_pd.plot()
-    #plt.show()
-    ts = list(data_pd.index)
-    train_start = "2018/1/2"
-    train_end = "2020/12/31"
+def get_fOU_data(ts_points, name: str):  
+    split_pt = int(ts_points[1])
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    data = pd.read_csv("fOU.csv")
     
-    data = pd.read_csv("data.csv").iloc[::-1] 
-    #ts = data["Date"]
-    #print(ts)
-    ts = pd.to_datetime(ts)
-    ts = ts.map(pd.Timestamp.timestamp).values
-    ts_normal = (ts - ts[0]) / (ts[-1] - ts[0])
-    
-    sample_trajs, train_data, test_data, train_ts_pd, test_ts_pd, train_ts, test_ts = get_stock_data()
-    #print(train_ts, train_data)
-    plt.figure()
-    plt.plot(train_ts, train_data)
-    plt.show()
+    train_ts = data['t'].values[:split_pt]
+    test_ts = data['t'].values[split_pt:]
+    train_ts_str = train_ts.astype(object) #str(train_ts)
+    test_ts_str = test_ts.astype(object) #str(test_ts)
 
-#data_plot()
+    if name == 'fOU_H0.7':
+        data = data['H=0.7'].values
+    if name == 'fOU_H0.8':
+        data = data['H=0.8'].values
+    if name == 'fOU_H0.9':
+        data = data['H=0.9'].values
+    data = (data - np.mean(data)) / np.std(data)
+    train_data = data[:split_pt]
+    test_data = data[split_pt:]
+
+    
+    return train_data.reshape(-1, 1), test_data.reshape(-1, 1), train_ts_str, test_ts_str, train_ts, test_ts
+
+

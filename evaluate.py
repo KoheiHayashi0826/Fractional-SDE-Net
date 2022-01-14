@@ -4,6 +4,7 @@ from itertools import product
 import os 
 
 import math
+from posixpath import split
 import numpy as np
 #from numpy import linalg
 from numpy.core.arrayprint import printoptions
@@ -15,10 +16,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import statsmodels.api as sm
 
-from train import DICT_DATANAME, DICT_METHOD, ts_points
+from train import DICT_DATANAME, DICT_DATANAME_STOCK, DICT_DATANAME_fOU, DICT_METHOD 
+from train import stock_ts_points, fOU_ts_points
 from utils.plots import plot_generated_paths, plot_hist, plot_correlogram, plot_scatter
 
-DICT_EVALUATION = ['Hurst', 'Distribution', 'ACF_annealed', 'ACF_quenched', 'R2 Score']
+DICT_EVALUATION = ['Hurst', 'Distribution', 'ACF_annealed', 'wACF_annealed', 'R2 Score', 'ACF_quenched', 'wACF_quenched']
 #eval_obj = 'price' 
 eval_obj = 'return'
 #eval_obj = 'RV'
@@ -31,19 +33,25 @@ def read_data(ts_points, data_name, method):
     os.chdir(os.path.dirname(os.path.abspath(__file__)))    
     path = f"./result/{data_name}/path_csv/{method}.csv"
     data_csv = pd.read_csv(path, index_col="Date")
-    
-    paths_gen = stock_transform(data_csv.values[:,2:], eval_obj)
-    paths_gen_train = stock_transform(data_csv.loc[train_start:train_end].values[:,2:], eval_obj)
-    paths_gen_test = stock_transform(data_csv.loc[test_start:test_end].values[:,2:], eval_obj) 
 
-    path_hist = stock_transform(data_csv[[data_name]].values, eval_obj).reshape(-1)
-    path_hist_train = stock_transform(data_csv[[data_name]].loc[train_start:train_end].values, eval_obj).reshape(-1)
-    path_hist_test = stock_transform(data_csv[[data_name]].loc[test_start:test_end].values, eval_obj).reshape(-1)
+    if data_name in DICT_DATANAME_STOCK:
+        paths_gen = stock_transform(data_csv.values[:,2:], eval_obj)
+        paths_gen_train = stock_transform(data_csv.loc[train_start:train_end].values[:,2:], eval_obj)
+        paths_gen_test = stock_transform(data_csv.loc[test_start:test_end].values[:,2:], eval_obj) 
+        path_hist = stock_transform(data_csv[[data_name]].values, eval_obj).reshape(-1)
+        path_hist_train = stock_transform(data_csv[[data_name]].loc[train_start:train_end].values, eval_obj).reshape(-1)
+        path_hist_test = stock_transform(data_csv[[data_name]].loc[test_start:test_end].values, eval_obj).reshape(-1)
+    elif data_name in DICT_DATANAME_fOU:
+        split_pt = int(ts_points[1])
+        paths_gen = stock_transform(data_csv.values[:,2:], eval_obj)
+        paths_gen_train = stock_transform(data_csv.values[:split_pt,2:], eval_obj)
+        paths_gen_test = stock_transform(data_csv.values[split_pt:,2:], eval_obj) 
+ 
+        path_hist = stock_transform(data_csv[[data_name]].values, eval_obj).reshape(-1)
+        path_hist_train = stock_transform(data_csv[[data_name]].values[:split_pt:], eval_obj).reshape(-1)
+        path_hist_test = stock_transform(data_csv[[data_name]].values[split_pt:], eval_obj).reshape(-1)
 
-    path_gen = stock_transform(data_csv[["0"]].values, eval_obj).reshape(-1)
-    path_gen_train = stock_transform(data_csv[["0"]].loc[train_start:train_end].values, eval_obj).reshape(-1)
-    path_gen_test = stock_transform(data_csv[["0"]].loc[test_start:test_end].values, eval_obj).reshape(-1)
-    
+
     return paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test
 
 
@@ -73,15 +81,24 @@ def acf_score_annealed(path_hist, paths_gen, weight):
     path_hist = np.abs(path_hist)
     paths_gen = np.abs(paths_gen)
     lag_horizon = path_hist.size - 500
-    acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False)
+
+    if weight:
+        w = np.arange(1, lag_horizon + 2)
+        norm = np.square(w).astype(np.int64).sum()
+        w = w / w.mean()
+    else: 
+        w = np.ones(lag_horizon + 1)
+        #norm = np.square(w).sum()
+        #w = w / norm
+
+    acf_hist = sm.tsa.stattools.acf(path_hist, nlags=lag_horizon, fft=False) * w
     acfs_gen = []
     for i in range(paths_gen.shape[1]):
-        acf_gen = sm.tsa.stattools.acf(paths_gen[:,i], nlags=lag_horizon, fft=False)
+        acf_gen = sm.tsa.stattools.acf(paths_gen[:,i], nlags=lag_horizon, fft=False) * w
         acfs_gen.append(acf_gen)
     acfs_gen = np.stack(acfs_gen, axis=0)
     acf_gen_annealed = np.mean(acfs_gen.reshape(-1, batch_size), axis=1)
     score = np.square(acf_hist - acf_gen_annealed).sum()**0.5 # l^2-norm 
-    #score = 0
     return f'&{score:.3f}' 
 
 def marginal_distribution_score(path_hist, paths_gen):
@@ -131,7 +148,7 @@ def estimate_hurst(data, name, method):
             sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
             std = np.cumsum(np.square(data[:,i] - mean)) / np.arange(1, len(data[:,i]) + 1)
             Q = sample_range / std 
-            T = len(data) - 100  # max is (len-1)
+            T = len(data) - 10  # max is (len-1)
             y = np.log(Q[-T:-1]).reshape(-1, 1)
             x = np.log(np.arange(len(data[:,i])- T + 2, len(data[:,i]) + 1)).reshape(-1, 1)
             reg = LinearRegression().fit(x, y)
@@ -155,14 +172,19 @@ def save_summary():
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
         for i, key_method in enumerate(DICT_METHOD):
-            paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test = read_data(ts_points, key_data, key_method)
+            if key_data in DICT_DATANAME_STOCK:
+                paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test = read_data(stock_ts_points, key_data, key_method)
+            elif key_data in DICT_DATANAME_fOU:
+                paths_gen, paths_gen_train, paths_gen_test, path_hist, path_hist_train, path_hist_test = read_data(fOU_ts_points, key_data, key_method)
             plot_correlogram(key_data, key_method, path_hist, paths_gen[:,0])
             summary[i, 0] = print_error(estimate_hurst(paths_gen, key_data, key_method))
             summary[i, 1] = print_error(marginal_distribution_score(path_hist, paths_gen))
-            summary[i, 3] = print_error(acf_score(path_hist, paths_gen, weight=False))
-            summary[i, 2] = acf_score_annealed(path_hist, paths_gen, weight=True)
+            summary[i, 2] = acf_score_annealed(path_hist, paths_gen, weight=False)
+            summary[i, 3] = acf_score_annealed(path_hist, paths_gen, weight=True)
             summary[i, 4] = print_error(prediction_score(path_hist_test, paths_gen_test))
-        summary[3, 0] = estimate_hurst(path_hist, key_data, 'original')
+            summary[i, 5] = print_error(acf_score(path_hist, paths_gen, weight=False))            
+            summary[i, 6] = print_error(acf_score(path_hist, paths_gen, weight=True))
+        summary[i+1, 0] = estimate_hurst(path_hist, key_data, 'original')
         summary_pd = pd.DataFrame(data=summary, columns=DICT_EVALUATION, index=DICT_METHOD + ['Original'])
         summary_pd.to_csv(file_name)
         print(f"Data: {key_data}")
