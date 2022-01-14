@@ -133,7 +133,7 @@ def estimate_hurst(data, name, method):
         sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
         std = np.cumsum(np.square(data -mean)) / np.arange(1, len(data) + 1)
         Q = sample_range / std 
-        T = len(data) - 100  # max is (len-1)
+        T = len(data) - 1  # max is (len-1)
         y = np.log(Q[-T:-1]).reshape(-1, 1)
         x = np.log(np.arange(len(data)- T + 2, len(data) + 1)).reshape(-1, 1)
         plot_scatter(name, method, x, y)
@@ -148,7 +148,7 @@ def estimate_hurst(data, name, method):
             sample_range = np.maximum.accumulate(cumsum) - np.minimum.accumulate(cumsum)
             std = np.cumsum(np.square(data[:,i] - mean)) / np.arange(1, len(data[:,i]) + 1)
             Q = sample_range / std 
-            T = len(data) - 10  # max is (len-1)
+            T = len(data) - 1  # max is (len-1)
             y = np.log(Q[-T:-1]).reshape(-1, 1)
             x = np.log(np.arange(len(data[:,i])- T + 2, len(data[:,i]) + 1)).reshape(-1, 1)
             reg = LinearRegression().fit(x, y)
