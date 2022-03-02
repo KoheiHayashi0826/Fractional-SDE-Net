@@ -14,8 +14,8 @@ from torch.nn.modules.linear import Linear
 
 
 bool_xavier_normal = True
-init_gain_sde = 1 #2
-init_gain_fsde = 1.5 #2.5
+init_gain_sde = 3 
+init_gain_fsde = 8 #1.5 
 batch_dim, state_dim, bm_dim = 100, 1, 1
 nhidden_rnn, nhidden_sde, nhidden_fsde = 40, 20, 20
 latent_dim = 1

@@ -2,44 +2,48 @@ import os
 import argparse
 import logging
 import time
+import sys
+
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('agg')
 import numpy as np
 from numpy.core.arrayprint import printoptions
 import numpy.random as npr
-import matplotlib
 from tqdm import tqdm
-
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from data.data import get_stock_data, get_fOU_data
+from data.data import get_stock_data, get_fOU_data, get_other_data
 from utils.neural_net import LatentFSDEfunc, LatentODEfunc, GeneratorRNN
 from utils.neural_net import LatentSDEfunc, latent_dim, batch_dim, nhidden_rnn
 from utils.utils import RunningAverageMeter, log_normal_pdf, normal_kl, calculate_log_likelihood
 from utils.plots import plot_generated_paths, plot_original_path, plot_hist
 from utils.utils import save_csv, tensor_to_numpy
 
+#sys.setrecursionlimit(10000)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--ode_adjoint', type=eval, default=False)
 parser.add_argument('--sde_adjoint', type=eval, default=False)
-parser.add_argument('--niters', type=int, default=1) # originally 5000
-parser.add_argument('--lr', type=float, default=0.04)
+parser.add_argument('--niters', type=int, default=10) # originally 5000
+parser.add_argument('--lr', type=float, default=0.05)
 parser.add_argument('--reg_lambda', type=float, default=0)
-parser.add_argument('--hurst', type=float, default=0.6)
+parser.add_argument('--hurst', type=float, default=0.8)
 parser.add_argument('--gpu', type=int, default=0)
-parser.add_argument('--num_paths', type=int, default=5)
+parser.add_argument('--num_paths', type=int, default=10)
 args = parser.parse_args()
 
 DICT_DATANAME_STOCK = ["SPX", "TPX", "SX5E"]
 DICT_DATANAME_fOU = ['fOU_H0.7', 'fOU_H0.8', 'fOU_H0.9']
-DICT_DATANAME = ['fOU_H0.7']
+DICT_DATANAME_OTHER = ['NileMin', 'ethernet']
+DICT_DATANAME = ['ethernet']
 #DICT_DATANAME = DICT_DATANAME_fOU
 #DICT_DATANAME = DICT_DATANAME_STOCK + DICT_DATANAME_fOU
+
 #DICT_METHOD = ['fSDE']
 DICT_METHOD = ['RNN', 'SDE', 'fSDE']
 
@@ -47,7 +51,9 @@ DICT_METHOD = ['RNN', 'SDE', 'fSDE']
 #ts_points = ['1986/4/10', '2015/12/31', '2021/11/11'] 
 #ts_points = ['2000/1/3', '2020/12/31', '2021/11/11'] 
 stock_ts_points = ['2000/1/3', '2020/12/31', '2021/11/11'] 
-fOU_ts_points = ['0', '900', '1000']
+split_rate = 0.8
+#fOU_ts_points = ['0', '900', '1000']
+#other_ts_points = ['0', '600', '663']
 
 if args.ode_adjoint:
     from torchdiffeq import odeint_adjoint as odeint
@@ -62,19 +68,17 @@ from utils.fsde_solver import fsdeint
 
 
 def train(data_name, method):
-    #nhidden = 20
-    #rnn_nhidden = 25
-    #obs_dim = 1
-    #noise_std = 10
-    
+ 
     device = torch.device('cuda:' + str(args.gpu)
                           if torch.cuda.is_available() else 'cpu')
 
     # generate data
-    if data_name in ['RNN', 'SDE', 'fSDE']:
+    if data_name in DICT_DATANAME_STOCK:
         train_data, test_data, train_ts_str, test_ts_str, train_ts, test_ts = get_stock_data(stock_ts_points, data_name)
-    elif data_name in ['fOU_H0.7', 'fOU_H0.8', 'fOU_H0.9']: 
-        train_data, test_data, train_ts_str, test_ts_str, train_ts, test_ts = get_fOU_data(fOU_ts_points, data_name)   
+    elif data_name in DICT_DATANAME_fOU: 
+        train_data, test_data, train_ts_str, test_ts_str, train_ts, test_ts = get_fOU_data(data_name, split_rate)   
+    elif data_name in DICT_DATANAME_OTHER:
+        train_data, test_data, train_ts_str, test_ts_str, train_ts, test_ts = get_other_data(data_name, split_rate)   
     train_data = torch.from_numpy(train_data).float().to(device) 
     test_data = torch.from_numpy(test_data).float().to(device)
     train_ts = torch.from_numpy(train_ts).float().to(device)
@@ -207,25 +211,6 @@ def train(data_name, method):
         xs_gen_np = tensor_to_numpy(xs_gen[:,:,0]) 
         save_csv(data_name, method, ts_total_str, data_total.reshape(-1), xs_gen_np)
         plot_hist(data_name, method, xs_gen_np[0], train_data)
-
-            #zs_pred = fsdeint(func_fSDE, hurst=args.hurst, y0=zs_learn[:,-1,:], ts=test_ts) 
-            #xs_learn = dec(zs_learn[0,:,:])
-            #xs_pred = dec(zs_pred[0,:,:])
-            #xs_learn = zs_learn[0,:,0].reshape(-1, 1)
-            #xs_gen = zs_learn[:,:,0].reshape(batch_dim, -1).to(device).numpy()
-            #print(xs_gen.shape[0])
-            #xs_pred = zs_pred[0,:,0].reshape(-1, 1)
-            #print(zs_pred[0,:,0].reshape(-1, 1))
-            #print(xs_pred)
-
-
-    #xs_learn = xs_learn.to(device).numpy()
-    #xs_pred = xs_pred.to(device).numpy()
-    #save_csv(data_name, method, train_ts_pd, train_data.reshape(-1), xs_learn.reshape(-1))
-    
-    #plot_path(data_name, method, train_ts, xs_learn, test_ts, xs_pred, train_data, test_data)
-    #plot_hist(data_name, method, xs_learn, train_data)
-
 
 
 if __name__ == '__main__':

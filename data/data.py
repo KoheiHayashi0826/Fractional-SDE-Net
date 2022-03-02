@@ -25,9 +25,6 @@ def get_stock_data(ts_poits, data_name): #, start=0., stop=1):
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     data = pd.read_csv("data.csv", index_col="Date").iloc[::-1].dropna()
     data = data[[data_name]]
-    #data = data[["SPX"]]
-    #data = data[["SX5E"]]
-    
     
     data = data.loc[train_start:test_end]
     data = np.log(data)
@@ -66,27 +63,50 @@ def get_stock_data(ts_poits, data_name): #, start=0., stop=1):
     return train_data.values, test_data.values, train_ts_str, test_ts_str, train_ts, test_ts
 
 
-def get_fOU_data(ts_points, name: str):  
-    split_pt = int(ts_points[1])
+def get_fOU_data(name, split_rate):  
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     data = pd.read_csv("fOU.csv")
+    data_num = data['t'].size
+    split_pt = round(split_rate * data_num)
     
-    train_ts = data['t'].values[:split_pt]
-    test_ts = data['t'].values[split_pt:]
+    train_ts = data['t'].values[:split_pt] / data_num
+    test_ts = data['t'].values[split_pt:] / data_num
     train_ts_str = train_ts.astype(object) #str(train_ts)
     test_ts_str = test_ts.astype(object) #str(test_ts)
 
     if name == 'fOU_H0.7':
         data = data['H=0.7'].values
-    if name == 'fOU_H0.8':
+    elif name == 'fOU_H0.8':
         data = data['H=0.8'].values
-    if name == 'fOU_H0.9':
+    elif name == 'fOU_H0.9':
         data = data['H=0.9'].values
     data = (data - np.mean(data)) / np.std(data)
     train_data = data[:split_pt]
     test_data = data[split_pt:]
 
-    
     return train_data.reshape(-1, 1), test_data.reshape(-1, 1), train_ts_str, test_ts_str, train_ts, test_ts
 
 
+def get_other_data(name, split_rate):  
+    #split_pt = int(ts_points[1])
+    #terminal_pt = int(ts_points[2])
+
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    if name == 'Nilemin':
+        data = pd.read_csv("NileMin.csv")
+    elif name == 'ethernet':
+        data = pd.read_csv("ethernetTraffic.csv")
+    data_num = data['t'].size
+    split_pt = round(split_rate * data_num)
+    
+    train_ts = data['t'].values[:split_pt] / data_num
+    test_ts = data['t'].values[split_pt:] / data_num
+    train_ts_str = train_ts.astype(object) #str(train_ts)
+    test_ts_str = test_ts.astype(object) #str(test_ts)
+
+    data = data['x'].values
+    data = (data - np.mean(data)) / np.std(data)
+    train_data = data[:split_pt]
+    test_data = data[split_pt:]
+
+    return train_data.reshape(-1, 1), test_data.reshape(-1, 1), train_ts_str, test_ts_str, train_ts, test_ts
