@@ -92,7 +92,7 @@ def acf_score_annealed(path_hist, paths_gen, weight):
     batch_size = paths_gen.shape[1]
     path_hist = np.abs(path_hist)
     paths_gen = np.abs(paths_gen)
-    lag_horizon = path_hist.size - 500
+    lag_horizon = path_hist.size - 200
 
     if weight:
         w = np.arange(1, lag_horizon + 2)

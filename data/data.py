@@ -92,10 +92,16 @@ def get_other_data(name, split_rate):
     #terminal_pt = int(ts_points[2])
 
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    if name == 'Nilemin':
+    if name == 'NileMin':
         data = pd.read_csv("NileMin.csv")
     elif name == 'ethernet':
         data = pd.read_csv("ethernetTraffic.csv")
+    elif name == 'NBSdiff':
+        data = pd.read_csv("NBSdiff1kg.csv")
+    elif name == 'NhemiTemp':
+        data = pd.read_csv("NhemiTemp.csv")
+    elif name == 'videoVBR':
+        data = pd.read_csv("videoVBR.csv")
     data_num = data['t'].size
     split_pt = round(split_rate * data_num)
     
@@ -105,6 +111,8 @@ def get_other_data(name, split_rate):
     test_ts_str = test_ts.astype(object) #str(test_ts)
 
     data = data['x'].values
+    data = (data - np.mean(data)) / np.std(data)
+    data = np.cumsum(data)
     data = (data - np.mean(data)) / np.std(data)
     train_data = data[:split_pt]
     test_data = data[split_pt:]
