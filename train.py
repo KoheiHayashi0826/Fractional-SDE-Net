@@ -32,18 +32,20 @@ parser.add_argument('--sde_adjoint', type=eval, default=False)
 parser.add_argument('--niters', type=int, default=10) # originally 5000
 parser.add_argument('--lr', type=float, default=0.04)
 parser.add_argument('--reg_lambda', type=float, default=0)
-parser.add_argument('--hurst', type=float, default=0.9)
+parser.add_argument('--hurst', type=float, default=0.7)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--num_paths', type=int, default=10)
 args = parser.parse_args()
 
 DICT_DATANAME_STOCK = ["SPX", "TPX", "SX5E"]
-DICT_DATANAME_fOU = ['fOU_H0.7', 'fOU_H0.8', 'fOU_H0.9']
-DICT_DATANAME_OTHER = ['NileMin', 'ethernet', 'videoVBR', 'NBSdiff', 'NhemiTemp']
-DICT_DATANAME = ['videoVBR', 'NBSdiff', 'NhemiTemp']
-#DICT_DATANAME = ['ethernet']
+#DICT_DATANAME_fOU = ['fOU_H0.7', 'fOU_H0.8', 'fOU_H0.9']
+DICT_DATANAME_fOU = ['fOU_H0.7']
+#DICT_DATANAME_OTHER = ['NileMin', 'ethernet', 'videoVBR', 'NBSdiff', 'NhemiTemp']
+DICT_DATANAME_OTHER = ['NileMin', 'ethernet', 'NBSdiff', 'NhemiTemp']
+#DICT_DATANAME = ['NileMin']
+DICT_DATANAME = ['ethernet']
 #DICT_DATANAME = DICT_DATANAME_OTHER
-#DICT_DATANAME = DICT_DATANAME_STOCK + DICT_DATANAME_fOU
+#DICT_DATANAME = DICT_DATANAME_STOCK + DICT_DATANAME_fOU + DICT_DATANAME_OTHER
 
 #DICT_METHOD = ['fSDE']
 DICT_METHOD = ['RNN', 'SDE', 'fSDE']

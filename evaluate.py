@@ -22,6 +22,7 @@ from train import stock_ts_points, split_rate
 from utils.plots import plot_generated_paths, plot_hist, plot_correlogram, plot_scatter
 
 DICT_EVALUATION = ['Hurst', 'Distribution', 'ACF_annealed', 'wACF_annealed', 'R2 Score', 'ACF_quenched', 'wACF_quenched']
+#DICT_EVALUATION = ['Hurst', 'Distribution', 'ACF_annealed', 'wACF_annealed', 'R2 Score']
 #eval_obj = 'price' 
 eval_obj = 'return'
 #eval_obj = 'RV'
@@ -140,7 +141,7 @@ def prediction_score(path_hist, paths_gen):
 
 
 def estimate_hurst(data, name, method):
-    T = len(data) - 4  # max is (len-1)
+    T = len(data) - 20  # max is (len-1)
     if data.shape[0] == data.size: # when batch_size=1
         mean = np.mean(data)
         cumsum = np.cumsum(data - mean)

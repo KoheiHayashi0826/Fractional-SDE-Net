@@ -69,8 +69,8 @@ def get_fOU_data(name, split_rate):
     data_num = data['t'].size
     split_pt = round(split_rate * data_num)
     
-    train_ts = data['t'].values[:split_pt] / data_num
-    test_ts = data['t'].values[split_pt:] / data_num
+    train_ts = data['t'].values[:split_pt] #/ data_num
+    test_ts = data['t'].values[split_pt:] #/ data_num
     train_ts_str = train_ts.astype(object) #str(train_ts)
     test_ts_str = test_ts.astype(object) #str(test_ts)
 
